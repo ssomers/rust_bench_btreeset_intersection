@@ -4,6 +4,13 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
+/// A lazy iterator producing elements in the intersection of `BTreeSet`s.
+///
+/// This `struct` is created by the [`intersection`] method on [`BTreeSet`].
+/// See its documentation for more.
+///
+/// [`BTreeSet`]: struct.BTreeSet.html
+/// [`intersection`]: struct.BTreeSet.html#method.intersection
 pub struct Intersection<'a, T: 'a> {
     inner: IntersectionInner<'a, T>,
 }
@@ -23,6 +30,63 @@ enum IntersectionInner<'a, T: 'a> {
         small_iter: Iter<'a, T>,
         large_set: &'a BTreeSet<T>,
     },
+}
+
+trait JustToAppearSimilar<T> {
+    fn intersection<'a>(&'a self, other: &'a BTreeSet<T>) -> Intersection<'a, T>;
+}
+impl<T> JustToAppearSimilar<T> for BTreeSet<T> {
+    /// Visits the values representing the intersection,
+    /// i.e., the values that are both in `self` and `other`,
+    /// in ascending order.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::collections::BTreeSet;
+    ///
+    /// let mut a = BTreeSet::new();
+    /// a.insert(1);
+    /// a.insert(2);
+    ///
+    /// let mut b = BTreeSet::new();
+    /// b.insert(2);
+    /// b.insert(3);
+    ///
+    /// let intersection: Vec<_> = a.intersection(&b).cloned().collect();
+    /// assert_eq!(intersection, [2]);
+    /// ```
+    fn intersection<'a>(&'a self, other: &'a BTreeSet<T>) -> Intersection<'a, T> {
+        let (small, other) = if self.len() <= other.len() {
+            (self, other)
+        } else {
+            (other, self)
+        };
+        // The following rule:
+        // - is based on the benchmarks in
+        //   https://github.com/ssomers/rust_bench_btreeset_intersection;
+        // - divides, rather than multiplies, to rule out overflow;
+        // - avoids creating a second iterator if one of the sets is empty.
+        if small.len() > other.len() / 16 {
+            // Small set is not much smaller than other set, so iterate
+            // both sets jointly, spotting matches along the way.
+            Intersection {
+                inner: IntersectionInner::Stitch {
+                    small_iter: small.iter(),
+                    other_iter: other.iter(),
+                },
+            }
+        } else {
+            // Big difference in number of elements, so iterate the small set,
+            // searching for matches in the large set.
+            Intersection {
+                inner: IntersectionInner::Search {
+                    small_iter: small.iter(),
+                    large_set: other,
+                },
+            }
+        }
+    }
 }
 
 impl<'a, T: Ord> Iterator for Intersection<'a, T> {
@@ -99,37 +163,10 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
 }
 
 pub fn intersection_future<'a, T: Ord>(
-    selv: &'a BTreeSet<T>,
+    selve: &'a BTreeSet<T>,
     other: &'a BTreeSet<T>,
 ) -> Intersection<'a, T> {
-    let (small, other) = if selv.len() <= other.len() {
-        (selv, other)
-    } else {
-        (other, selv)
-    };
-    Intersection {
-        inner:
-        // The following rule:
-        // - is based on the benchmarks in
-        //   https://github.com/ssomers/rust_bench_btreeset_intersection;
-        // - divides, rather than multiplies, to rule out overflow;
-        // - avoids creating a second iterator if one of the sets is empty.
-        if small.len() > other.len() / 16 {
-            // Small set is not much smaller than other set, so iterate
-            // both sets jointly, spotting matches along the way.
-            IntersectionInner::Stitch {
-                small_iter: small.iter(),
-                other_iter: other.iter(),
-            }
-        } else {
-            // Big difference in number of elements, so iterate the small set,
-            // searching for matches in the large set.
-            IntersectionInner::Search {
-                small_iter: small.iter(),
-                large_set: other,
-            }
-        },
-    }
+    (selve as &JustToAppearSimilar<T>).intersection(other)
 }
 
 pub fn intersection_search<'a, T: Ord>(
