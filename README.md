@@ -22,9 +22,10 @@ Tests named `intersect_stagger_500_vs_x16` intersect a set of 500 elements with 
 [![Comparison](https://plot.ly/~stein.somers/216.png "View interactively")](https://plot.ly/~stein.somers/216)
 
 The graph also shows how much we lose by choosing a constant factor 16, regardless of the size of the small set.
-For instance, unless we'd pick a different factor or introduce a complicated rule involving absolute sizes:
-- A 10 element set intersected with a 150 element set is almost 3 times slower than it could have been.
-- A 10k element set intersected with a 1600k element set is almost 30% slower than it could have been.
+For instance:
+- A 10 element set intersected with a 160 element set (implying the search strategy) is almost 3 times faster than it was originally.
+- A 10 element set intersected with a 150 element set (implying the stitch strategy) is almost 3 times slower than it could have been with a lower factor.
+- A 10k element set intersected with a 1600k element set (implying the search strategy) is almost 30% slower than it could have been with a higher factor. It's also slower than it was originally, but only by 15%, because the stitch strategy compared to is some 15% faster than the original.
 
 
 ## License
