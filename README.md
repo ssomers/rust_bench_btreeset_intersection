@@ -26,7 +26,7 @@ The graph also shows how much we lose by choosing a constant factor 16, regardle
 For instance:
 - A 10 element set intersected with a 160 element set (implying the search strategy) is almost 3 times faster than it was originally.
 - A 10 element set intersected with a 150 element set (implying the stitch strategy) is almost 3 times slower than it could have been with a lower factor.
-- A 10k element set intersected with a 1600k element set (implying the search strategy) is almost 30% slower than it could have been with a higher factor. It's also slower than it was originally, but only by 15%, because the stitch strategy compared to is some 15% faster than the original.
+- A 10k element set intersected with a 1600k element set (implying the search strategy) is almost 30% slower than it could have been with a higher factor. It's also slower than it was originally, but only by 15%, because the stitch strategy compared to is some 15% faster than the original. And beware it's a microbencmark: it preys on caches filled with its data and doesn't care how much other data gets pushed out. The search strategy should access less memory than the stitch strategy.
 
 
 ## License
