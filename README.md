@@ -5,11 +5,11 @@ Requires a build that supports benchmarks like nightly.
 
 `cargo bench --features include_100k` produces a bunch of measurement in groups of 5, for instance:
 
-    test intersect_random_100::vs_100         ... bench:         674 ns/iter (+/- 12)
-    test intersect_random_100::vs_100_future  ... bench:         476 ns/iter (+/- 3)
-    test intersect_random_100::vs_100_search  ... bench:       1,589 ns/iter (+/- 67)
-    test intersect_random_100::vs_100_spring  ... bench:       1,535 ns/iter (+/- 73)
-    test intersect_random_100::vs_100_stitch  ... bench:         468 ns/iter (+/- 11)
+    test intersect_random_100::vs_100         ... bench:         776 ns/iter (+/- 8)
+    test intersect_random_100::vs_100_future  ... bench:         480 ns/iter (+/- 6)
+    test intersect_random_100::vs_100_search  ... bench:       1,579 ns/iter (+/- 47)
+    test intersect_random_100::vs_100_stitch  ... bench:         474 ns/iter (+/- 6)
+    test intersect_random_100::vs_100_swivel  ... bench:       1,489 ns/iter (+/- 14)
 
 Each of these 5 test measures the time spent intersecting two different sets with 100 pseudo-random elements (with the same seed each time), in order:
 - on top: implementation of intersection in the liballoc of the (nightly) rustc build used
