@@ -20,7 +20,7 @@ enum IntersectionInner<'a, T: 'a> {
         small_iter: Iter<'a, T>, // for size_hint, should be the smaller of the sets
         other_iter: Iter<'a, T>,
     },
-    Spring {
+    Swivel {
         small_range: Range<'a, T>,
         small_set: &'a BTreeSet<T>,
         other_range: Range<'a, T>,
@@ -108,7 +108,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
                     }
                 }
             }
-            IntersectionInner::Spring {
+            IntersectionInner::Swivel {
                 small_range,
                 small_set,
                 other_range,
@@ -155,7 +155,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let upper_bound = match &self.inner {
             IntersectionInner::Stitch { small_iter, .. } => small_iter.len(),
-            IntersectionInner::Spring { small_set, .. } => small_set.len(),
+            IntersectionInner::Swivel { small_set, .. } => small_set.len(),
             IntersectionInner::Search { small_iter, .. } => small_iter.len(),
         };
         (0, Some(upper_bound))
@@ -182,21 +182,6 @@ pub fn intersection_search<'a, T: Ord>(
     }
 }
 
-pub fn intersection_spring<'a, T: Ord>(
-    small: &'a BTreeSet<T>,
-    other: &'a BTreeSet<T>,
-) -> Intersection<'a, T> {
-    debug_assert!(small.len() <= other.len());
-    Intersection {
-        inner: IntersectionInner::Spring {
-            small_range: small.range(..),
-            small_set: &small,
-            other_range: other.range(..),
-            other_set: &other,
-        },
-    }
-}
-
 pub fn intersection_stitch<'a, T: Ord>(
     small: &'a BTreeSet<T>,
     other: &'a BTreeSet<T>,
@@ -206,6 +191,21 @@ pub fn intersection_stitch<'a, T: Ord>(
         inner: IntersectionInner::Stitch {
             small_iter: small.iter(),
             other_iter: other.iter(),
+        },
+    }
+}
+
+pub fn intersection_swivel<'a, T: Ord>(
+    small: &'a BTreeSet<T>,
+    other: &'a BTreeSet<T>,
+) -> Intersection<'a, T> {
+    debug_assert!(small.len() <= other.len());
+    Intersection {
+        inner: IntersectionInner::Swivel {
+            small_range: small.range(..),
+            small_set: &small,
+            other_range: other.range(..),
+            other_set: &other,
         },
     }
 }

@@ -1,4 +1,5 @@
-# Rust BTreeSet intersection benchmark
+# Rust BTreeSet intersection benchmark [![Build Status](https://travis-ci.com/ssomers/rust_bench_btreeset_intersection.svg?branch=master)](https://travis-ci.com/ssomers/rust_bench_btreeset_intersection?branch=master)
+
 Case study comparing the performance of strategies for calculating the intersection of BTreeSet instances.
 Requires a build that supports benchmarks like nightly.
 
@@ -14,8 +15,8 @@ Each of these 5 test measures the time spent intersecting two different sets wit
 - on top: implementation of intersection in the liballoc of the (nightly) rustc build used
 - future: proposed implementation, that attempts to choose wisely between one of the strategies below (assuming that the local build has the same optimizations as the nightly build)
 - search: iterating over the smallest of the sets, each time searching for a match in the largest set
-- spring: bock-spring implementation, searching for the element equal to or greater than the lower bound of the unvisited values in the other set (never used)
 - stitch: same strategy as the original liballoc, but implemented more efficiently without Peekable
+- swivel: bock-spring implementation, each time searching for the element equal to or greater than the lower bound of the unvisited values in the other set (never used)
 
 Tests named `intersect_stagger_500_vs_x16` intersect a set of 500 elements with a disjoint set of 8000 elements (500 times 16), with the elements spaced evenly (e.g. 0 in first set, 1..16 in second set, 17 in first set, etc). Comparing for various sizes allows estimating  a factor for which the search and the stitch strategy perform likewise:
 
