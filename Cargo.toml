@@ -6,6 +6,9 @@ autotests = false
 autobenches = false 
 edition = "2018"
 
+[features]
+include_100k = []
+
 [dev-dependencies]
 proptest = "0.9"
 rand = "0.6"
