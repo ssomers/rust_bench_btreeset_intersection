@@ -14,7 +14,6 @@ use std::collections::BTreeSet;
 pub struct Intersection<'a, T: 'a> {
     inner: IntersectionInner<'a, T>,
 }
-#[derive(Debug)]
 enum IntersectionInner<'a, T: 'a> {
     Stitch {
         small_iter: Iter<'a, T>, // for size_hint, should be the smaller of the sets
@@ -31,6 +30,14 @@ enum IntersectionInner<'a, T: 'a> {
         large_set: &'a BTreeSet<T>,
     },
 }
+
+// This constant is used by functions that compare two sets.
+// It estimates the relative size at which searching performs better
+// than iterating, based on the benchmarks in
+// https://github.com/ssomers/rust_bench_btreeset_intersection;
+// It's used to divide rather than multiply sizes, to rule out overflow,
+// and it's a power of two to make that division cheap.
+const ITER_PERFORMANCE_TIPPING_SIZE_DIFF: usize = 16;
 
 trait JustToAppearSimilar<T> {
     fn intersection<'a>(&'a self, other: &'a BTreeSet<T>) -> Intersection<'a, T>;
@@ -56,20 +63,16 @@ impl<T> JustToAppearSimilar<T> for BTreeSet<T> {
     /// let intersection: Vec<_> = a.intersection(&b).cloned().collect();
     /// assert_eq!(intersection, [2]);
     /// ```
+    // #[stable(feature = "rust1", since = "1.0.0")]
     fn intersection<'a>(&'a self, other: &'a BTreeSet<T>) -> Intersection<'a, T> {
         let (small, other) = if self.len() <= other.len() {
             (self, other)
         } else {
             (other, self)
         };
-        // The following rule:
-        // - is based on the benchmarks in
-        //   https://github.com/ssomers/rust_bench_btreeset_intersection;
-        // - divides, rather than multiplies, to rule out overflow;
-        // - avoids creating a second iterator if one of the sets is empty.
-        if small.len() > other.len() / 16 {
-            // Small set is not much smaller than other set, so iterate
-            // both sets jointly, spotting matches along the way.
+        if small.len() > other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
+            // Small set is not much smaller than other set.
+            // Iterate both sets jointly, spotting matches along the way.
             Intersection {
                 inner: IntersectionInner::Stitch {
                     small_iter: small.iter(),
@@ -77,8 +80,8 @@ impl<T> JustToAppearSimilar<T> for BTreeSet<T> {
                 },
             }
         } else {
-            // Big difference in number of elements, so iterate the small set,
-            // searching for matches in the large set.
+            // Big difference in number of elements, or both sets are empty.
+            // Iterate the small set, searching for matches in the large set.
             Intersection {
                 inner: IntersectionInner::Search {
                     small_iter: small.iter(),
@@ -89,6 +92,31 @@ impl<T> JustToAppearSimilar<T> for BTreeSet<T> {
     }
 }
 
+/*
+impl<T> Clone for Intersection<'_, T> {
+    fn clone(&self) -> Self {
+        Intersection {
+            inner: match &self.inner {
+                IntersectionInner::Stitch {
+                    small_iter,
+                    other_iter,
+                } => IntersectionInner::Stitch {
+                    small_iter: small_iter.clone(),
+                    other_iter: other_iter.clone(),
+                },
+                IntersectionInner::Search {
+                    small_iter,
+                    large_set,
+                } => IntersectionInner::Search {
+                    small_iter: small_iter.clone(),
+                    large_set,
+                },
+            },
+        }
+    }
+}
+#[stable(feature = "rust1", since = "1.0.0")]
+*/
 impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     type Item = &'a T;
 
@@ -153,12 +181,12 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let upper_bound = match &self.inner {
+        let min_len = match &self.inner {
             IntersectionInner::Stitch { small_iter, .. } => small_iter.len(),
             IntersectionInner::Swivel { small_set, .. } => small_set.len(),
             IntersectionInner::Search { small_iter, .. } => small_iter.len(),
         };
-        (0, Some(upper_bound))
+        (0, Some(min_len))
     }
 }
 
