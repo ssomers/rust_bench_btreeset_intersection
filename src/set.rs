@@ -1,5 +1,6 @@
 // file comparable to rust/src/liballoc/collections/btree/set.rs
 
+use core::cmp::min;
 use std::cmp::Ordering::{Equal, Greater, Less};
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
@@ -16,8 +17,8 @@ pub struct Intersection<'a, T: 'a> {
 }
 enum IntersectionInner<'a, T: 'a> {
     Stitch {
-        small_iter: Iter<'a, T>, // for size_hint, should be the smaller of the sets
-        other_iter: Iter<'a, T>,
+        a_iter: Iter<'a, T>,
+        b_iter: Iter<'a, T>,
     },
     Swivel {
         small_range: Range<'a, T>,
@@ -75,8 +76,8 @@ impl<T> JustToAppearSimilar<T> for BTreeSet<T> {
             // Iterate both sets jointly, spotting matches along the way.
             Intersection {
                 inner: IntersectionInner::Stitch {
-                    small_iter: small.iter(),
-                    other_iter: other.iter(),
+                    a_iter: small.iter(),
+                    b_iter: other.iter(),
                 },
             }
         } else {
@@ -98,11 +99,11 @@ impl<T> Clone for Intersection<'_, T> {
         Intersection {
             inner: match &self.inner {
                 IntersectionInner::Stitch {
-                    small_iter,
-                    other_iter,
+                    a_iter,
+                    b_iter,
                 } => IntersectionInner::Stitch {
-                    small_iter: small_iter.clone(),
-                    other_iter: other_iter.clone(),
+                    a_iter: a_iter.clone(),
+                    b_iter: b_iter.clone(),
                 },
                 IntersectionInner::Search {
                     small_iter,
@@ -122,17 +123,14 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         match &mut self.inner {
-            IntersectionInner::Stitch {
-                small_iter,
-                other_iter,
-            } => {
-                let mut small_next = small_iter.next()?;
-                let mut other_next = other_iter.next()?;
+            IntersectionInner::Stitch { a_iter, b_iter } => {
+                let mut a_next = a_iter.next()?;
+                let mut b_next = b_iter.next()?;
                 loop {
-                    match Ord::cmp(small_next, other_next) {
-                        Less => small_next = small_iter.next()?,
-                        Greater => other_next = other_iter.next()?,
-                        Equal => return Some(small_next),
+                    match Ord::cmp(a_next, b_next) {
+                        Less => a_next = a_iter.next()?,
+                        Greater => b_next = b_iter.next()?,
+                        Equal => return Some(a_next),
                     }
                 }
             }
@@ -142,7 +140,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
                 other_range,
                 other_set,
             } => {
-                const NEXT_COUNT_MAX: usize = 1;
+                const NEXT_COUNT_MAX: usize = ITER_PERFORMANCE_TIPPING_SIZE_DIFF;
                 let mut next_count: usize = 0;
                 let mut small_next = small_range.next()?;
                 let mut other_next = other_range.next()?;
@@ -182,7 +180,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let min_len = match &self.inner {
-            IntersectionInner::Stitch { small_iter, .. } => small_iter.len(),
+            IntersectionInner::Stitch { a_iter, b_iter } => min(a_iter.len(), b_iter.len()),
             IntersectionInner::Swivel { small_set, .. } => small_set.len(),
             IntersectionInner::Search { small_iter, .. } => small_iter.len(),
         };
@@ -194,7 +192,7 @@ pub fn intersection_future<'a, T: Ord>(
     selve: &'a BTreeSet<T>,
     other: &'a BTreeSet<T>,
 ) -> Intersection<'a, T> {
-    (selve as &JustToAppearSimilar<T>).intersection(other)
+    (selve as &dyn JustToAppearSimilar<T>).intersection(other)
 }
 
 pub fn intersection_search<'a, T: Ord>(
@@ -217,8 +215,8 @@ pub fn intersection_stitch<'a, T: Ord>(
     debug_assert!(small.len() <= other.len());
     Intersection {
         inner: IntersectionInner::Stitch {
-            small_iter: small.iter(),
-            other_iter: other.iter(),
+            a_iter: small.iter(),
+            b_iter: other.iter(),
         },
     }
 }
