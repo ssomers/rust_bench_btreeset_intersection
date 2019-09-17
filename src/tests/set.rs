@@ -46,22 +46,6 @@ proptest! {
     }
 
     #[test]
-    fn test_intersection_search(len1 in 0..1000usize, len2 in 0..1000usize) {
-        prop_assume!(len1 <= len2);
-        let s1 = random_set(len1, 11u8);
-        let s2 = random_set(len2, 22u8);
-        assert_intersection(intersection_search(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn test_intersection_stitch(len1 in 0..1000usize, len2 in 0..1000usize) {
-        prop_assume!(len1 <= len2);
-        let s1 = random_set(len1, 11u8);
-        let s2 = random_set(len2, 22u8);
-        assert_intersection(intersection_stitch(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
     fn test_intersection_swivel(len1 in 0..1000usize, len2 in 0..1000usize) {
         prop_assume!(len1 <= len2);
         let s1 = random_set(len1, 11u8);
