@@ -93,6 +93,15 @@ impl<T> Clone for Intersection<'_, T> {
 }
 */
 
+impl<'a, T: Ord> Intersection<'a, T> {
+    fn has_tiny_remaining_a(&self) -> bool {
+        self.a_iter.len() <= self.b_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF
+    }
+    fn has_tiny_remaining_b(&self) -> bool {
+        self.b_iter.len() <= self.a_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF
+    }
+}
+
 /*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
@@ -100,53 +109,46 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        if self.a_iter.len() <= self.b_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-            // The unseen remainder of set A is much smaller than that of B,
-            // so search in B instead of iterating it.
+        if self.has_tiny_remaining_a() {
+            // Search in B instead of iterating it.
             loop {
                 let a_next = self.a_iter.next()?;
                 if self.b_set.contains(&a_next) {
                     return Some(a_next);
                 }
             }
-        } else if self.b_iter.len() <= self.a_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-            // The unseen remainder of set B is much smaller than that of A,
-            // so search in A instead of iterating it.
+        }
+        if self.has_tiny_remaining_b() {
+            // Search in A instead of iterating it.
             loop {
                 let b_next = self.b_iter.next()?;
                 if self.a_set.contains(&b_next) {
                     return Some(b_next);
                 }
             }
-        } else {
-            let mut a_next = self.a_iter.next()?;
-            let mut b_next = self.b_iter.next()?;
-            loop {
-                match Ord::cmp(a_next, b_next) {
-                    Less => {
-                        if self.a_iter.len()
-                            <= self.b_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF
-                        {
-                            // b_iter is one iteration too far.
-                            // Reset it even though it currently doesn't cause any problem.
-                            self.b_iter = self.b_set.iter();
-                            return self.next();
-                        }
-                        a_next = self.a_iter.next()?;
+        }
+
+        let mut a_next = self.a_iter.next()?;
+        let mut b_next = self.b_iter.next()?;
+        loop {
+            match Ord::cmp(a_next, b_next) {
+                Less => {
+                    if self.has_tiny_remaining_a() {
+                        // b_iter has moved too far, but won't be used anymore,
+                        // apart from its length which remains huge.
+                        return self.next();
                     }
-                    Greater => {
-                        if self.b_iter.len()
-                            <= self.a_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF
-                        {
-                            // a_iter is one iteration too far, but we won't use it
-                            // Reset it even though it currently doesn't cause any problem.
-                            self.a_iter = self.a_set.iter();
-                            return self.next();
-                        }
-                        b_next = self.b_iter.next()?
-                    }
-                    Equal => return Some(a_next),
+                    a_next = self.a_iter.next()?
                 }
+                Greater => {
+                    if self.has_tiny_remaining_b() {
+                        // a_iter has moved too far, but won't be used anymore,
+                        // apart from its length which remains huge.
+                        return self.next();
+                    }
+                    b_next = self.b_iter.next()?
+                }
+                Equal => return Some(a_next),
             }
         }
     }
@@ -173,7 +175,7 @@ impl<'a, T: Ord> Iterator for IntersectionSwivel<'a, T> {
                         next_count = 0;
                         self.a_range = self.a_set.range(b_next..);
                     }
-                    a_next = self.a_range.next()?;
+                    a_next = self.a_range.next()?
                 }
                 Greater => {
                     next_count += 1;
@@ -181,13 +183,9 @@ impl<'a, T: Ord> Iterator for IntersectionSwivel<'a, T> {
                         next_count = 0;
                         self.b_range = self.b_set.range(a_next..);
                     }
-                    b_next = self.b_range.next()?;
+                    b_next = self.b_range.next()?
                 }
-                Equal => {
-                    return Some(
-                        a_next
-                    )
-                }
+                Equal => return Some(a_next),
             }
         }
     }
@@ -211,9 +209,9 @@ pub fn intersection_swivel<'a, T: Ord>(
 ) -> IntersectionSwivel<'a, T> {
     debug_assert!(small.len() <= other.len());
     IntersectionSwivel {
-            a_range: small.range(..),
-            a_set: &small,
-            b_range: other.range(..),
-            b_set: &other,
+        a_range: small.range(..),
+        a_set: &small,
+        b_range: other.range(..),
+        b_set: &other,
     }
 }
