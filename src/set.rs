@@ -109,42 +109,31 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        if self.has_tiny_remaining_a() {
-            // Search in B instead of iterating it.
-            loop {
-                let a_next = self.a_iter.next()?;
-                if self.b_set.contains(&a_next) {
-                    return Some(a_next);
-                }
-            }
-        }
-        if self.has_tiny_remaining_b() {
-            // Search in A instead of iterating it.
-            loop {
-                let b_next = self.b_iter.next()?;
-                if self.a_set.contains(&b_next) {
-                    return Some(b_next);
-                }
-            }
-        }
-
         let mut a_next = self.a_iter.next()?;
         let mut b_next = self.b_iter.next()?;
         loop {
             match Ord::cmp(a_next, b_next) {
                 Less => {
                     if self.has_tiny_remaining_a() {
-                        // b_iter has moved too far, but won't be used anymore,
-                        // apart from its length which remains huge.
-                        return self.next();
+                        // Search in B instead of continuing to iterate.
+                        loop {
+                            if self.b_set.contains(&a_next) {
+                                return Some(a_next);
+                            }
+                            a_next = self.a_iter.next()?;
+                        }
                     }
                     a_next = self.a_iter.next()?
                 }
                 Greater => {
                     if self.has_tiny_remaining_b() {
-                        // a_iter has moved too far, but won't be used anymore,
-                        // apart from its length which remains huge.
-                        return self.next();
+                        // Search in A instead of continuing to iterate.
+                        loop {
+                            if self.a_set.contains(&b_next) {
+                                return Some(b_next);
+                            }
+                            b_next = self.b_iter.next()?;
+                        }
                     }
                     b_next = self.b_iter.next()?
                 }
