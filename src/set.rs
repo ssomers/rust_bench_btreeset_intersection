@@ -72,25 +72,14 @@ impl<T> JustToAppearSimilar<T> for BTreeSet<T> {
 impl<T> Clone for Intersection<'_, T> {
     fn clone(&self) -> Self {
         Intersection {
-            inner: match &self.inner {
-                IntersectionInner::Stitch {
-                    a_iter,
-                    b_iter,
-                } => IntersectionInner::Stitch {
-                    a_iter: a_iter.clone(),
-                    b_iter: b_iter.clone(),
-                },
-                IntersectionInner::Search {
-                    small_iter,
-                    large_set,
-                } => IntersectionInner::Search {
-                    small_iter: small_iter.clone(),
-                    large_set,
-                },
-            },
+            a_iter: self.a_iter.clone(),
+            b_iter: self.b_iter.clone(),
+            a_set: self.a_set,
+            b_set: self.b_set,
         }
     }
 }
+
 */
 
 impl<'a, T: Ord> Intersection<'a, T> {
@@ -99,6 +88,24 @@ impl<'a, T: Ord> Intersection<'a, T> {
     }
     fn has_tiny_remaining_b(&self) -> bool {
         self.b_iter.len() <= self.a_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF
+    }
+    fn use_tiny_remaining_a(&mut self, a_next: &'a T) -> Option<&'a T> {
+        Intersection::use_tiny_remainder(a_next, &mut self.a_iter, self.b_set)
+    }
+    fn use_tiny_remaining_b(&mut self, b_next: &'a T) -> Option<&'a T> {
+        Intersection::use_tiny_remainder(b_next, &mut self.b_iter, self.a_set)
+    }
+    fn use_tiny_remainder(
+        mut next: &'a T,
+        tiny_iter: &mut Iter<'a, T>,
+        huge_set: &BTreeSet<T>,
+    ) -> Option<&'a T> {
+        loop {
+            if huge_set.contains(&next) {
+                return Some(next);
+            }
+            next = tiny_iter.next()?;
+        }
     }
 }
 
@@ -114,28 +121,22 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
         loop {
             match Ord::cmp(a_next, b_next) {
                 Less => {
-                    if self.has_tiny_remaining_a() {
-                        // Search in B instead of continuing to iterate.
-                        loop {
-                            if self.b_set.contains(&a_next) {
-                                return Some(a_next);
-                            }
-                            a_next = self.a_iter.next()?;
-                        }
+                    if self.has_tiny_remaining_b() {
+                        return self.use_tiny_remaining_b(b_next);
                     }
-                    a_next = self.a_iter.next()?
+                    a_next = self.a_iter.next()?;
+                    if self.has_tiny_remaining_a() {
+                        return self.use_tiny_remaining_a(a_next);
+                    }
                 }
                 Greater => {
-                    if self.has_tiny_remaining_b() {
-                        // Search in A instead of continuing to iterate.
-                        loop {
-                            if self.a_set.contains(&b_next) {
-                                return Some(b_next);
-                            }
-                            b_next = self.b_iter.next()?;
-                        }
+                    if self.has_tiny_remaining_a() {
+                        return self.use_tiny_remaining_a(a_next);
                     }
-                    b_next = self.b_iter.next()?
+                    b_next = self.b_iter.next()?;
+                    if self.has_tiny_remaining_b() {
+                        return self.use_tiny_remaining_b(b_next);
+                    }
                 }
                 Equal => return Some(a_next),
             }
@@ -143,8 +144,9 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let min_len = min(self.a_iter.len(), self.b_iter.len());
-        (0, Some(min_len))
+        let a_len = self.a_iter.len();
+        let b_len = self.b_iter.len();
+        (0, Some(min(a_len, b_len)))
     }
 }
 
@@ -180,8 +182,9 @@ impl<'a, T: Ord> Iterator for IntersectionSwivel<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let min_len = min(self.a_set.len(), self.b_set.len());
-        (0, Some(min_len))
+        let a_len = self.a_set.len();
+        let b_len = self.b_set.len();
+        (0, Some(min(a_len, b_len)))
     }
 }
 

@@ -20,6 +20,24 @@ fn random(n1: usize, n2: usize) -> [BTreeSet<usize>; 2] {
     sets
 }
 
+fn neg(n: usize) -> BTreeSet<i32> {
+    let mut set = BTreeSet::new();
+    for i in -(n as i32)..=-1 {
+        set.insert(i);
+    }
+    assert_eq!(set.len(), n);
+    set
+}
+
+fn pos(n: usize) -> BTreeSet<i32> {
+    let mut set = BTreeSet::new();
+    for i in 1..=(n as i32) {
+        set.insert(i);
+    }
+    assert_eq!(set.len(), n);
+    set
+}
+
 fn stagger(n1: usize, factor: usize) -> [BTreeSet<u32>; 2] {
     let n2 = n1 * factor;
     let mut sets = [BTreeSet::new(), BTreeSet::new()];
@@ -53,7 +71,6 @@ macro_rules! intersection_bench {
 
             // setup
             let sets = $sets;
-            assert!(sets[0].len() <= sets[1].len());
 
             // measure
             b.iter(|| {
@@ -62,6 +79,34 @@ macro_rules! intersection_bench {
             })
         }
     };
+}
+
+mod intersect_neg_vs_pos {
+    use super::{neg, pos};
+    intersection_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
+    intersection_bench! {_100_neg_vs_100_pos_future, [neg(100), pos(100)], intersection_future}
+    intersection_bench! {_100_neg_vs_100_pos_swivel, [neg(100), pos(100)], intersection_swivel}
+    intersection_bench! {_100_neg_vs_10k_pos,        [neg(100), pos(10_000)]}
+    intersection_bench! {_100_neg_vs_10k_pos_future, [neg(100), pos(10_000)], intersection_future}
+    intersection_bench! {_100_neg_vs_10k_pos_swivel, [neg(100), pos(10_000)], intersection_swivel}
+    intersection_bench! {_100_pos_vs_100_neg,        [pos(100), neg(100)]}
+    intersection_bench! {_100_pos_vs_100_neg_future, [pos(100), neg(100)], intersection_future}
+    intersection_bench! {_100_pos_vs_100_neg_swivel, [pos(100), neg(100)], intersection_swivel}
+    intersection_bench! {_100_pos_vs_10k_neg,        [pos(100), neg(10_000)]}
+    intersection_bench! {_100_pos_vs_10k_neg_future, [pos(100), neg(10_000)], intersection_future}
+    intersection_bench! {_100_pos_vs_10k_neg_swivel, [pos(100), neg(10_000)], intersection_swivel}
+    intersection_bench! {_10k_neg_vs_100_pos,        [neg(10_000), pos(100)]}
+    intersection_bench! {_10k_neg_vs_100_pos_future, [neg(10_000), pos(100)], intersection_future}
+    intersection_bench! {_10k_neg_vs_100_pos_swivel, [neg(10_000), pos(100)], intersection_swivel}
+    intersection_bench! {_10k_neg_vs_10k_pos,        [neg(10_000), pos(10_000)]}
+    intersection_bench! {_10k_neg_vs_10k_pos_future, [neg(10_000), pos(10_000)], intersection_future}
+    intersection_bench! {_10k_neg_vs_10k_pos_swivel, [neg(10_000), pos(10_000)], intersection_swivel}
+    intersection_bench! {_10k_pos_vs_100_neg,        [pos(10_000), neg(100)]}
+    intersection_bench! {_10k_pos_vs_100_neg_future, [pos(10_000), neg(100)], intersection_future}
+    intersection_bench! {_10k_pos_vs_100_neg_swivel, [pos(10_000), neg(100)], intersection_swivel}
+    intersection_bench! {_10k_pos_vs_10k_neg,        [pos(10_000), neg(10_000)]}
+    intersection_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], intersection_future}
+    intersection_bench! {_10k_pos_vs_10k_neg_swivel, [pos(10_000), neg(10_000)], intersection_swivel}
 }
 
 mod intersect_random_100 {
