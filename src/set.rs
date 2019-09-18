@@ -196,14 +196,13 @@ pub fn intersection_future<'a, T: Ord>(
 }
 
 pub fn intersection_swivel<'a, T: Ord>(
-    small: &'a BTreeSet<T>,
-    other: &'a BTreeSet<T>,
+    a: &'a BTreeSet<T>,
+    b: &'a BTreeSet<T>,
 ) -> IntersectionSwivel<'a, T> {
-    debug_assert!(small.len() <= other.len());
     IntersectionSwivel {
-        a_range: small.range(..),
-        a_set: &small,
-        b_range: other.range(..),
-        b_set: &other,
+        a_range: a.range(..),
+        a_set: &a,
+        b_range: b.range(..),
+        b_set: &b,
     }
 }
