@@ -211,7 +211,8 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let min_len = match &self.inner {
-            IntersectionInner::Answer(answer) => answer.iter().count(),
+            IntersectionInner::Answer(None) => 0,
+            IntersectionInner::Answer(Some(_)) => 1,
             IntersectionInner::Stitch { a_iter, b_iter } => min(a_iter.len(), b_iter.len()),
             IntersectionInner::Swivel { a_set, b_set, .. } => min(a_set.len(), b_set.len()),
             IntersectionInner::Search { small_iter, .. } => small_iter.len(),
