@@ -21,10 +21,10 @@ enum IntersectionInner<'a, T: 'a> {
         b_iter: Iter<'a, T>,
     },
     Swivel {
-        small_range: Range<'a, T>,
-        small_set: &'a BTreeSet<T>,
-        other_range: Range<'a, T>,
-        other_set: &'a BTreeSet<T>,
+        a_range: Range<'a, T>,
+        a_set: &'a BTreeSet<T>,
+        b_range: Range<'a, T>,
+        b_set: &'a BTreeSet<T>,
     },
     Search {
         small_iter: Iter<'a, T>,
@@ -135,34 +135,34 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
                 }
             }
             IntersectionInner::Swivel {
-                small_range,
-                small_set,
-                other_range,
-                other_set,
+                a_range,
+                a_set,
+                b_range,
+                b_set,
             } => {
                 const NEXT_COUNT_MAX: usize = ITER_PERFORMANCE_TIPPING_SIZE_DIFF;
                 let mut next_count: usize = 0;
-                let mut small_next = small_range.next()?;
-                let mut other_next = other_range.next()?;
+                let mut a_next = a_range.next()?;
+                let mut b_next = b_range.next()?;
                 loop {
-                    match Ord::cmp(small_next, other_next) {
+                    match Ord::cmp(a_next, b_next) {
                         Less => {
                             next_count += 1;
                             if next_count > NEXT_COUNT_MAX {
                                 next_count = 0;
-                                *small_range = small_set.range(other_next..);
+                                *a_range = a_set.range(b_next..);
                             }
-                            small_next = small_range.next()?;
+                            a_next = a_range.next()?
                         }
                         Greater => {
                             next_count += 1;
                             if next_count > NEXT_COUNT_MAX {
                                 next_count = 0;
-                                *other_range = other_set.range(small_next..);
+                                *b_range = b_set.range(a_next..);
                             }
-                            other_next = other_range.next()?;
+                            b_next = b_range.next()?
                         }
-                        Equal => return Some(small_next),
+                        Equal => return Some(a_next),
                     }
                 }
             }
@@ -181,7 +181,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let min_len = match &self.inner {
             IntersectionInner::Stitch { a_iter, b_iter } => min(a_iter.len(), b_iter.len()),
-            IntersectionInner::Swivel { small_set, .. } => small_set.len(),
+            IntersectionInner::Swivel { a_set, b_set, .. } => min(a_set.len(), b_set.len()),
             IntersectionInner::Search { small_iter, .. } => small_iter.len(),
         };
         (0, Some(min_len))
@@ -209,29 +209,27 @@ pub fn intersection_search<'a, T: Ord>(
 }
 
 pub fn intersection_stitch<'a, T: Ord>(
-    small: &'a BTreeSet<T>,
-    other: &'a BTreeSet<T>,
+    a: &'a BTreeSet<T>,
+    b: &'a BTreeSet<T>,
 ) -> Intersection<'a, T> {
-    debug_assert!(small.len() <= other.len());
     Intersection {
         inner: IntersectionInner::Stitch {
-            a_iter: small.iter(),
-            b_iter: other.iter(),
+            a_iter: a.iter(),
+            b_iter: b.iter(),
         },
     }
 }
 
 pub fn intersection_swivel<'a, T: Ord>(
-    small: &'a BTreeSet<T>,
-    other: &'a BTreeSet<T>,
+    a: &'a BTreeSet<T>,
+    b: &'a BTreeSet<T>,
 ) -> Intersection<'a, T> {
-    debug_assert!(small.len() <= other.len());
     Intersection {
         inner: IntersectionInner::Swivel {
-            small_range: small.range(..),
-            small_set: &small,
-            other_range: other.range(..),
-            other_set: &other,
+            a_range: a.range(..),
+            a_set: &a,
+            b_range: b.range(..),
+            b_set: &b,
         },
     }
 }
