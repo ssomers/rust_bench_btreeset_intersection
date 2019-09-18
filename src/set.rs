@@ -16,6 +16,7 @@ pub struct Intersection<'a, T: 'a> {
     inner: IntersectionInner<'a, T>,
 }
 enum IntersectionInner<'a, T: 'a> {
+    Answer(Option<&'a T>),
     Stitch {
         a_iter: Iter<'a, T>,
         b_iter: Iter<'a, T>,
@@ -43,7 +44,7 @@ const ITER_PERFORMANCE_TIPPING_SIZE_DIFF: usize = 16;
 trait JustToAppearSimilar<T> {
     fn intersection<'a>(&'a self, other: &'a BTreeSet<T>) -> Intersection<'a, T>;
 }
-impl<T> JustToAppearSimilar<T> for BTreeSet<T> {
+impl<T: Ord> JustToAppearSimilar<T> for BTreeSet<T> {
     /// Visits the values representing the intersection,
     /// i.e., the values that are both in `self` and `other`,
     /// in ascending order.
@@ -66,29 +67,58 @@ impl<T> JustToAppearSimilar<T> for BTreeSet<T> {
     /// ```
     // #[stable(feature = "rust1", since = "1.0.0")]
     fn intersection<'a>(&'a self, other: &'a BTreeSet<T>) -> Intersection<'a, T> {
-        let (small, other) = if self.len() <= other.len() {
-            (self, other)
-        } else {
-            (other, self)
-        };
-        if small.len() > other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-            // Small set is not much smaller than other set.
-            // Iterate both sets jointly, spotting matches along the way.
-            Intersection {
-                inner: IntersectionInner::Stitch {
-                    a_iter: small.iter(),
+        Intersection {
+            inner: match (self.len(), other.len()) {
+                (0, _) => IntersectionInner::Answer(None),
+                (_, 0) => IntersectionInner::Answer(None),
+                (1, _) => IntersectionInner::Search {
+                    small_iter: self.iter(),
+                    large_set: other, // BTreeSet::contains should be optimal for a single lookup
+                },
+                (_, 1) => IntersectionInner::Search {
+                    small_iter: other.iter(),
+                    large_set: self, // BTreeSet::contains should be optimal for a single lookup
+                },
+                (2..=4, 2..=4) => IntersectionInner::Stitch {
+                    a_iter: self.iter(),
                     b_iter: other.iter(),
                 },
-            }
-        } else {
-            // Big difference in number of elements, or both sets are empty.
-            // Iterate the small set, searching for matches in the large set.
-            Intersection {
-                inner: IntersectionInner::Search {
-                    small_iter: small.iter(),
-                    large_set: other,
-                },
-            }
+                _ => {
+                    let mut self_iter = self.iter();
+                    let mut other_iter = other.iter();
+                    let self_min = self_iter.next().unwrap();
+                    let self_max = self_iter.last().unwrap();
+                    let other_min = other_iter.next().unwrap();
+                    let other_max = other_iter.last().unwrap();
+                    match (Ord::cmp(self_max, other_min), Ord::cmp(other_max, self_min)) {
+                        (Less, _) => IntersectionInner::Answer(None),
+                        (_, Less) => IntersectionInner::Answer(None),
+                        (Equal, _) => IntersectionInner::Answer(Some(self_max)),
+                        (_, Equal) => IntersectionInner::Answer(Some(self_min)),
+                        _ => {
+                            if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
+                                IntersectionInner::Search {
+                                    small_iter: self.iter(),
+                                    large_set: other,
+                                }
+                            } else if other.len() <= self.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF
+                            {
+                                IntersectionInner::Search {
+                                    small_iter: other.iter(),
+                                    large_set: self,
+                                }
+                            } else {
+                                // Both sets are similarly sized.
+                                // Iterate them jointly, spotting matches along the way.
+                                IntersectionInner::Stitch {
+                                    a_iter: self.iter(),
+                                    b_iter: other.iter(),
+                                }
+                            }
+                        }
+                    }
+                }
+            },
         }
     }
 }
@@ -123,6 +153,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         match &mut self.inner {
+            IntersectionInner::Answer(answer) => answer.take(),
             IntersectionInner::Stitch { a_iter, b_iter } => {
                 let mut a_next = a_iter.next()?;
                 let mut b_next = b_iter.next()?;
@@ -180,6 +211,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let min_len = match &self.inner {
+            IntersectionInner::Answer(answer) => answer.iter().count(),
             IntersectionInner::Stitch { a_iter, b_iter } => min(a_iter.len(), b_iter.len()),
             IntersectionInner::Swivel { a_set, b_set, .. } => min(a_set.len(), b_set.len()),
             IntersectionInner::Search { small_iter, .. } => small_iter.len(),
