@@ -132,7 +132,6 @@ mod intersect_random_10k {
     #[cfg(feature = "include_100k")]
     intersection_bench! {vs_160k_future,    random(10_000, 160_000), intersection_future}
     #[cfg(feature = "include_100k")]
-    #[cfg(feature = "include_100k")]
     intersection_bench! {vs_160k_swivel,    random(10_000, 160_000), intersection_swivel}
 }
 
@@ -141,6 +140,34 @@ mod stagger_000_001 {
     intersection_bench! {vs_1,          stagger(1, 1)}
     intersection_bench! {vs_1_future,   stagger(1, 1), intersection_future}
     intersection_bench! {vs_1_swivel,   stagger(1, 1), intersection_swivel}
+}
+
+mod stagger_000_002 {
+    use super::stagger;
+    intersection_bench! {vs_2,          stagger(2, 1)}
+    intersection_bench! {vs_2_future,   stagger(2, 1), intersection_future}
+    intersection_bench! {vs_2_swivel,   stagger(2, 1), intersection_swivel}
+}
+
+mod stagger_000_004 {
+    use super::stagger;
+    intersection_bench! {vs_4,          stagger(4, 1)}
+    intersection_bench! {vs_4_future,   stagger(4, 1), intersection_future}
+    intersection_bench! {vs_4_swivel,   stagger(4, 1), intersection_swivel}
+}
+
+mod stagger_000_006 {
+    use super::stagger;
+    intersection_bench! {vs_6,          stagger(6, 1)}
+    intersection_bench! {vs_6_future,   stagger(6, 1), intersection_future}
+    intersection_bench! {vs_6_swivel,   stagger(6, 1), intersection_swivel}
+}
+
+mod stagger_000_008 {
+    use super::stagger;
+    intersection_bench! {vs_8,          stagger(8, 1)}
+    intersection_bench! {vs_8_future,   stagger(8, 1), intersection_future}
+    intersection_bench! {vs_8_swivel,   stagger(8, 1), intersection_swivel}
 }
 
 mod stagger_000_010 {
@@ -246,6 +273,7 @@ mod stagger_001_000 {
     intersection_bench! {vs_x19_swivel, stagger(1_000, 19), intersection_swivel}
 }
 
+#[cfg(feature = "include_100k")]
 mod stagger_010_000 {
     use super::stagger;
     intersection_bench! {vs_x15,        stagger(10_000, 15)}
