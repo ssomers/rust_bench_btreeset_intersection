@@ -16,14 +16,14 @@ pub struct Intersection<'a, T: 'a> {
     inner: IntersectionInner<'a, T>,
 }
 enum IntersectionInner<'a, T: 'a> {
+    Answer(Option<&'a T>), // intersection found to be empty or a singleton
     Stitch {
         // iterate both sets jointly, or iterate one and look up in the other
         a_iter: Iter<'a, T>,
-        b_iter: Iter<'a, T>,
         a_set: &'a BTreeSet<T>,
+        b_iter: Iter<'a, T>,
         b_set: &'a BTreeSet<T>,
     },
-    Answer(Option<&'a T>), // intersection found to be empty or a singleton
 }
 pub struct IntersectionSwivel<'a, T: 'a> {
     a_range: Range<'a, T>,
@@ -75,8 +75,8 @@ impl<T: Ord> JustToAppearSimilar<T> for BTreeSet<T> {
                 (0, _) | (_, 0) => IntersectionInner::Answer(None),
                 (1, _) | (_, 1) | (2..=4, 2..=4) => IntersectionInner::Stitch {
                     a_iter: self.iter(),
-                    b_iter: other.iter(),
                     a_set: self,
+                    b_iter: other.iter(),
                     b_set: other,
                 },
                 _ => {
@@ -92,10 +92,10 @@ impl<T: Ord> JustToAppearSimilar<T> for BTreeSet<T> {
                         (Equal, _) => IntersectionInner::Answer(Some(self_max)),
                         (_, Equal) => IntersectionInner::Answer(Some(self_min)),
                         _ => IntersectionInner::Stitch {
-                            a_iter: self.iter(),
-                            b_iter: other.iter(),
                             a_set: self,
+                            a_iter: self.iter(),
                             b_set: other,
+                            b_iter: other.iter(),
                         },
                     }
                 }
@@ -108,18 +108,18 @@ impl<T> Clone for Intersection<'_, T> {
     fn clone(&self) -> Self {
         Intersection {
             inner: match &self.inner {
+                IntersectionInner::Answer(answer) => IntersectionInner::Answer(answer.clone()),
                 IntersectionInner::Stitch {
-                    a_iter,
-                    b_iter,
                     a_set,
                     b_set,
+                    a_iter,
+                    b_iter,
                 } => IntersectionInner::Stitch {
-                    a_iter: a_iter.clone(),
-                    b_iter: b_iter.clone(),
                     a_set: a_set,
                     b_set: b_set,
+                    a_iter: a_iter.clone(),
+                    b_iter: b_iter.clone(),
                 },
-                IntersectionInner::Answer(answer) => IntersectionInner::Answer(answer.clone()),
             },
         }
     }
@@ -132,8 +132,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        fn search_small_remainder<'b, S: Ord>(
-            small_next: &'b S,
+        fn search_remainder<'b, S: Ord>(
             small_iter: &mut Iter<'b, S>,
             large_iter: &Iter<'b, S>,
             large_set: &BTreeSet<S>,
@@ -141,68 +140,66 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
             if small_iter.len() > large_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
                 None
             } else {
-                let mut next = small_next;
-                Some(loop {
-                    if large_set.contains(&next) {
-                        break Some(next);
+                // At this point, large_iter's position may be one iteration
+                // beyond what you'd assume, and remains stuck, but it won't
+                // be used anymore. large_iter's length remains large, so we
+                // will keep coming back here, and it won't spoil size_hint.
+                loop {
+                    if let Some(next) = small_iter.next() {
+                        if large_set.contains(&next) {
+                            return Some(Some(next));
+                        }
+                    } else {
+                        return Some(None);
                     }
-                    next = small_iter.next()?;
-                })
+                }
             }
         }
 
         match &mut self.inner {
+            IntersectionInner::Answer(answer) => answer.take(),
             IntersectionInner::Stitch {
-                a_iter,
-                b_iter,
                 a_set,
                 b_set,
+                a_iter,
+                b_iter,
             } => {
+                if let Some(result) = search_remainder(a_iter, b_iter, b_set) {
+                    return result;
+                }
+                if let Some(result) = search_remainder(b_iter, a_iter, a_set) {
+                    return result;
+                }
                 let mut a_next = a_iter.next()?;
                 let mut b_next = b_iter.next()?;
                 loop {
                     match Ord::cmp(a_next, b_next) {
                         Less => {
-                            if let Some(result) =
-                                search_small_remainder(b_next, b_iter, a_iter, a_set)
-                            {
+                            if let Some(result) = search_remainder(a_iter, b_iter, b_set) {
                                 return result;
                             }
-                            a_next = a_iter.next()?;
-                            if let Some(result) =
-                                search_small_remainder(a_next, a_iter, b_iter, b_set)
-                            {
-                                return result;
-                            }
+                            a_next = a_iter.next()?
                         }
                         Greater => {
-                            if let Some(result) =
-                                search_small_remainder(a_next, a_iter, b_iter, b_set)
-                            {
+                            if let Some(result) = search_remainder(b_iter, a_iter, a_set) {
                                 return result;
                             }
-                            b_next = b_iter.next()?;
-                            if let Some(result) =
-                                search_small_remainder(b_next, b_iter, a_iter, a_set)
-                            {
-                                return result;
-                            }
+                            b_next = b_iter.next()?
                         }
                         Equal => return Some(a_next),
                     }
                 }
             }
-            IntersectionInner::Answer(answer) => answer.take(),
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         match &self.inner {
+            IntersectionInner::Answer(None) => (0, Some(0)),
+            IntersectionInner::Answer(Some(_)) => (1, Some(1)),
             IntersectionInner::Stitch { a_iter, b_iter, .. } => {
                 (0, Some(min(a_iter.len(), b_iter.len())))
             }
-            IntersectionInner::Answer(Some(_)) => (1, Some(1)),
-            IntersectionInner::Answer(None) => (0, Some(0)),
         }
     }
 }
