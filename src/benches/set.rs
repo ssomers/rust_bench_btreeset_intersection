@@ -2,13 +2,15 @@
 #![feature(test)]
 
 extern crate rand;
+extern crate rand_xorshift;
 extern crate test;
-use self::rand::{thread_rng, Rng};
+use self::rand::{Rng, SeedableRng};
+use self::rand_xorshift::XorShiftRng;
 use std::cmp::min;
 use std::collections::BTreeSet;
 
 fn random(n1: usize, n2: usize) -> [BTreeSet<usize>; 2] {
-    let mut rng = thread_rng();
+    let mut rng = XorShiftRng::from_seed([68; 16]);
     let mut sets = [BTreeSet::new(), BTreeSet::new()];
     for i in 0..2 {
         while sets[i].len() < [n1, n2][i] {

@@ -2,8 +2,7 @@ extern crate proptest;
 extern crate rand;
 extern crate rand_xorshift;
 use self::proptest::prelude::*;
-use self::rand::Rng;
-use self::rand::SeedableRng;
+use self::rand::{Rng, SeedableRng};
 use self::rand_xorshift::XorShiftRng;
 use ::rust_bench_btreeset_intersection::set::*;
 use std::collections::BTreeSet;
@@ -16,6 +15,7 @@ fn random_set(size: usize, ovule: u8) -> BTreeSet<usize> {
     }
     s
 }
+
 fn assert_intersection<'a, I: Iterator<Item = &'a usize>>(
     it: I,
     s1: &'a BTreeSet<usize>,
