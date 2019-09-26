@@ -1,8 +1,8 @@
 // file comparable to rust/src/liballoc/collections/btree/set.rs
 use core::cmp::min;
-use core::cmp::Ordering::{self, Equal, Greater, Less};
+use core::cmp::Ordering::{Equal, Greater, Less};
 use core::fmt::{self};
-use core::iter::{Peekable, Rev};
+use core::iter::Peekable;
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -14,7 +14,7 @@ use core::borrow::Borrow;
 use core::cmp::Ordering::{self, Less, Greater, Equal};
 use core::cmp::{max, min};
 use core::fmt::{self, Debug};
-use core::iter::{Peekable, Rev, FromIterator, FusedIterator};
+use core::iter::{Peekable, FromIterator, FusedIterator};
 use core::ops::{BitOr, BitAnd, BitXor, Sub, RangeBounds};
 
 use crate::collections::btree_map::{self, BTreeMap, Keys};
@@ -136,11 +136,6 @@ enum DifferenceInner<'a, T: 'a> {
         self_iter: Iter<'a, T>,
         other_iter: Peekable<Iter<'a, T>>,
     },
-    StitchBack {
-        // Stitch in reverse order
-        self_iter: Rev<Iter<'a, T>>,
-        other_iter: Peekable<Rev<Iter<'a, T>>>,
-    },
     Search {
         // iterate a small set, look up in the large set
         self_iter: Iter<'a, T>,
@@ -163,22 +158,11 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
                 .field(&self_iter)
                 .field(&other_iter)
                 .finish(),
-            DifferenceInner::StitchBack {
-                self_iter,
-                other_iter,
-            } => f
-                .debug_tuple("Difference")
-                .field(&self_iter)
-                .field(&other_iter)
-                .finish(),
             DifferenceInner::Search {
                 self_iter,
                 other_set: _,
             } => f.debug_tuple("Difference").field(&self_iter).finish(),
-            DifferenceInner::Iterate(iter) => f
-                .debug_tuple("Difference")
-                .field(&iter)
-                .finish(),
+            DifferenceInner::Iterate(iter) => f.debug_tuple("Difference").field(&iter).finish(),
         }
     }
 }
@@ -257,10 +241,9 @@ impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
                 small_iter,
                 large_set: _,
             } => f.debug_tuple("Intersection").field(&small_iter).finish(),
-            IntersectionInner::Answer(answer) => f
-                .debug_tuple("Intersection")
-                .field(&answer)
-                .finish(),
+            IntersectionInner::Answer(answer) => {
+                f.debug_tuple("Intersection").field(&answer).finish()
+            }
         }
     }
 }
@@ -374,8 +357,8 @@ impl<T: Ord> BTreeSet<T> {
     pub fn difference<'a>(&'a self, other: &'a BTreeSet<T>) -> Difference<'a, T> {
     */
     fn difference<'a>(&'a self, other: &'a BTreeSet<T>) -> Difference<'a, T> {
-        Difference { inner: 
-            if self.len() <= 1 || other.len() <= 1 {
+        Difference {
+            inner: if self.len() <= 1 || other.len() <= 1 {
                 // Optimizations below don't work or don't pay off.
                 DifferenceInner::Search {
                     self_iter: self.iter(),
@@ -388,51 +371,27 @@ impl<T: Ord> BTreeSet<T> {
                     other_iter: other.iter().peekable(),
                 }
             } else {
-                let mut self_minus_first = self.iter();
-                let self_min = self_minus_first.next().unwrap();
-                let mut self_minus_last = self.iter();
-                let self_max = self_minus_last.next_back().unwrap();
-                let mut other_minus_first = other.iter();
-                let other_min = other_minus_first.next().unwrap();
-                let mut other_minus_last = other.iter();
-                let other_max = other_minus_last.next_back().unwrap();
+                let mut self_except_first = self.iter();
+                let self_min = self_except_first.next().unwrap();
+                let mut self_except_last = self.iter();
+                let self_max = self_except_last.next_back().unwrap();
+                let mut other_iter = other.iter();
+                let other_min = other_iter.next().unwrap();
+                let other_max = other_iter.last().unwrap();
                 match (Ord::cmp(self_max, other_min), Ord::cmp(other_max, self_min)) {
                     (Less, _) | (_, Less) => DifferenceInner::Iterate(self.iter()),
-                    (Equal, _) => DifferenceInner::Iterate(self_minus_last),
-                    (_, Equal) => DifferenceInner::Iterate(self_minus_first),
-                    (Greater, Greater) => {
+                    (Equal, _) => DifferenceInner::Iterate(self_except_last),
+                    (_, Equal) => DifferenceInner::Iterate(self_except_first),
+                    _ => {
                         if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
                             DifferenceInner::Search {
                                 self_iter: self.iter(),
                                 other_set: other,
                             }
                         } else {
-                            match (Ord::cmp(self_min, other_min), 
-                                   Ord::cmp(self_max, other_max)) {
-                                (Less, Equal) => DifferenceInner::Stitch {
-                                    self_iter: self_minus_last,
-                                    other_iter: other_minus_last.peekable(),
-                                },
-                                (Less, _) => DifferenceInner::Stitch {
-                                    self_iter: self.iter(),
-                                    other_iter: other.iter().peekable(),
-                                },
-                                (Equal, _) => DifferenceInner::Stitch {
-                                    self_iter: self_minus_first,
-                                    other_iter: other_minus_first.peekable(),
-                                },
-                                (Greater, Less) => DifferenceInner::Stitch {
-                                    self_iter: self.iter(),
-                                    other_iter: other_minus_first.peekable(),
-                                },
-                                (Greater, Equal) => DifferenceInner::StitchBack {
-                                    self_iter: self_minus_last.rev(),
-                                    other_iter: other_minus_last.rev().peekable(),
-                                },
-                                (Greater, Greater) => DifferenceInner::StitchBack {
-                                    self_iter: self.iter().rev(),
-                                    other_iter: other.iter().rev().peekable(),
-                                },
+                            DifferenceInner::Stitch {
+                                self_iter: self.iter(),
+                                other_iter: other.iter().peekable(),
                             }
                         }
                     }
@@ -690,27 +649,23 @@ impl<T: Ord> BTreeSet<T> {
             0 => true,
             1 => other.contains(self.iter().next().unwrap()),
             _ => {
-                let mut self_iter = self.iter();
+                let mut self_except_first = self.iter();
+                let self_min = self_except_first.next().unwrap();
+                let mut self_except_last = self.iter();
+                let self_max = self_except_last.next_back().unwrap();
                 let mut other_iter = other.iter();
-                let self_min = self_iter.next().unwrap();
-                let self_max = self_iter.next_back().unwrap();
                 let other_min = other_iter.next().unwrap();
                 let other_max = other_iter.next_back().unwrap();
-                match (self_min.cmp(other_min), self_max.cmp(other_max)) {
+                let mut self_iter = match (self_min.cmp(other_min), self_max.cmp(other_max)) {
                     (Less, _) | (_, Greater) => return false,
-                    (Equal, Equal) => (),
-                    (Equal, Less) => { // Reset back position, skip front again
-                        self_iter = self.iter();
-                        self_iter.next();
+                    (Equal, Less) => self_except_first,
+                    (Greater, Equal) => self_except_last,
+                    (Equal, Equal) => {
+                        self_except_last.next();
+                        self_except_last
                     }
-                    (Greater, Equal) => { // Reset front position, skip back again
-                        self_iter = self.iter();
-                        self_iter.next_back();
-                    }
-                    (Greater, Less) => { // Reset both positions
-                        self_iter = self.iter();
-                    }
-                }
+                    (Greater, Less) => self.iter(),
+                };
 
                 if self_iter.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
                     // Big difference in number of elements.
@@ -1270,13 +1225,6 @@ impl<T> Clone for Difference<'_, T> {
                     self_iter: self_iter.clone(),
                     other_iter: other_iter.clone(),
                 },
-                DifferenceInner::StitchBack {
-                    self_iter,
-                    other_iter,
-                } => DifferenceInner::StitchBack {
-                    self_iter: self_iter.clone(),
-                    other_iter: other_iter.clone(),
-                },
                 DifferenceInner::Search {
                     self_iter,
                     other_set,
@@ -1284,8 +1232,7 @@ impl<T> Clone for Difference<'_, T> {
                     self_iter: self_iter.clone(),
                     other_set,
                 },
-                DifferenceInner::Iterate(iter) => 
-                    DifferenceInner::Iterate(iter.clone()),
+                DifferenceInner::Iterate(iter) => DifferenceInner::Iterate(iter.clone()),
             },
         }
     }
@@ -1297,38 +1244,27 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        fn stitch<'b, S: Ord, I: Iterator<Item=&'b S>>
-            (self_iter: &mut I, other_iter: &mut Peekable<I>, matching_ord: Ordering) -> Option<&'b S> {
-            let mut self_next = self_iter.next()?;
-            loop {
-                match other_iter
-                    .peek()
-                    .map_or(matching_ord, |other_next| Ord::cmp(self_next, other_next))
-                {
-                    ord if ord == matching_ord => return Some(self_next),
-                    Equal => {
-                        self_next = self_iter.next()?;
-                        other_iter.next();
-                    }
-                    _ => {
-                        other_iter.next();
-                    }
-                }
-            }
-        }
-
         match &mut self.inner {
             DifferenceInner::Stitch {
                 self_iter,
                 other_iter,
             } => {
-                stitch(self_iter, other_iter, Less)
-            }
-            DifferenceInner::StitchBack {
-                self_iter,
-                other_iter,
-            } => {
-                stitch(self_iter, other_iter, Greater)
+                let mut self_next = self_iter.next()?;
+                loop {
+                    match other_iter
+                        .peek()
+                        .map_or(Less, |other_next| Ord::cmp(self_next, other_next))
+                    {
+                        Less => return Some(self_next),
+                        Equal => {
+                            self_next = self_iter.next()?;
+                            other_iter.next();
+                        }
+                        Greater => {
+                            other_iter.next();
+                        }
+                    }
+                }
             }
             DifferenceInner::Search {
                 self_iter,
@@ -1347,15 +1283,11 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
         let (self_len, other_len) = match &self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_iter
-            } => (self_iter.len(), other_iter.len()),
-            DifferenceInner::StitchBack {
-                self_iter,
-                other_iter
+                other_iter,
             } => (self_iter.len(), other_iter.len()),
             DifferenceInner::Search {
                 self_iter,
-                other_set
+                other_set,
             } => (self_iter.len(), other_set.len()),
             DifferenceInner::Iterate(iter) => (iter.len(), 0),
         };
@@ -1548,10 +1480,7 @@ impl<'a, T: Ord> Iterator for IntersectionSwivel<'a, T> {
     }
 }
 
-pub fn is_subset_future<'a, T: Ord>(
-    selve: &'a BTreeSet<T>,
-    other: &'a BTreeSet<T>,
-) -> bool {
+pub fn is_subset_future<'a, T: Ord>(selve: &'a BTreeSet<T>, other: &'a BTreeSet<T>) -> bool {
     (selve as &dyn JustToIndentAsMuch<T>).is_subset(other)
 }
 
