@@ -378,10 +378,10 @@ impl<T: Ord> BTreeSet<T> {
                 let mut other_iter = other.iter();
                 let other_min = other_iter.next().unwrap();
                 let other_max = other_iter.last().unwrap();
-                match (Ord::cmp(self_max, other_min), Ord::cmp(other_max, self_min)) {
-                    (Less, _) | (_, Less) => DifferenceInner::Iterate(self.iter()),
-                    (Equal, _) => DifferenceInner::Iterate(self_except_last),
-                    (_, Equal) => DifferenceInner::Iterate(self_except_first),
+                match (Ord::cmp(self_min, other_max), Ord::cmp(self_max, other_min)) {
+                    (Greater, _) | (_, Less) => DifferenceInner::Iterate(self.iter()),
+                    (Equal, _) => DifferenceInner::Iterate(self_except_first),
+                    (_, Equal) => DifferenceInner::Iterate(self_except_last),
                     _ => {
                         if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
                             DifferenceInner::Search {
@@ -480,11 +480,10 @@ impl<T: Ord> BTreeSet<T> {
                     let self_max = self_iter.last().unwrap();
                     let other_min = other_iter.next().unwrap();
                     let other_max = other_iter.last().unwrap();
-                    match (Ord::cmp(self_max, other_min), Ord::cmp(other_max, self_min)) {
-                        (Less, _) => IntersectionInner::Answer(None),
-                        (_, Less) => IntersectionInner::Answer(None),
-                        (Equal, _) => IntersectionInner::Answer(Some(self_max)),
-                        (_, Equal) => IntersectionInner::Answer(Some(self_min)),
+                    match (Ord::cmp(self_min, other_max), Ord::cmp(self_max, other_min)) {
+                        (Greater, _) | (_, Less) => IntersectionInner::Answer(None),
+                        (Equal, _) => IntersectionInner::Answer(Some(self_min)),
+                        (_, Equal) => IntersectionInner::Answer(Some(self_max)),
                         _ => {
                             if a_len <= b_len / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
                                 IntersectionInner::Search {
@@ -643,9 +642,9 @@ impl<T: Ord> BTreeSet<T> {
     */
     fn is_subset(&self, other: &BTreeSet<T>) -> bool {
         // Same result as self.difference(other).next().is_none()
-        // but the code below is faster (hugely to barely).
+        // but the code below is faster (hugely in some cases).
         match self.len() {
-            too_big if too_big > other.len() => false,
+            larger if larger > other.len() => false,
             0 => true,
             1 => other.contains(self.iter().next().unwrap()),
             _ => {
@@ -669,7 +668,6 @@ impl<T: Ord> BTreeSet<T> {
 
                 if self_iter.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
                     // Big difference in number of elements.
-                    // Iterate the small set, searching for matches in the large set.
                     for next in self_iter {
                         if !other.contains(next) {
                             return false;
