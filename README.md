@@ -1,7 +1,7 @@
 # Rust BTreeSet intersection benchmark [![Build Status](https://travis-ci.com/ssomers/rust_bench_btreeset_intersection.svg?branch=master)](https://travis-ci.com/ssomers/rust_bench_btreeset_intersection?branch=master)
 
-Case study comparing the performance of strategies for calculating the intersection of BTreeSet instances.
-Requires a build that supports benchmarks like nightly.
+Case study comparing the performance of strategies for calculating the intersection of BTreeSet instances (and other members).
+Requires a build that supports benchmarks, like nightly.
 
 `cargo bench --features include_100k` produces a bunch of measurement in groups of 5, for instance:
 
@@ -26,7 +26,7 @@ The graph also shows how much we lose by choosing a constant factor 16, regardle
 For instance:
 - A 10 element set intersected with a 160 element set (implying the search strategy) is almost 3 times faster than it was originally.
 - A 10 element set intersected with a 150 element set (implying the stitch strategy) is almost 3 times slower than it could have been with a lower factor.
-- A 10k element set intersected with a 1600k element set (implying the search strategy) is almost 30% slower than it could have been with a higher factor. It's also slower than it was originally, but only by 15%, because the stitch strategy compared to is some 15% faster than the original. And beware it's a microbencmark: it preys on caches filled with its data and doesn't care how much other data gets pushed out. The search strategy should access less memory than the stitch strategy.
+- A 10k element set intersected with a 1600k element set (implying the search strategy) is almost 30% slower than it could have been with a higher factor. It's also slower than it was originally, but only by 15%, because the stitch strategy compared to is some 15% faster than the original stitch. And beware it's a microbenchmark: it preys on caches filled with its data and doesn't care how much other data gets pushed out. The search strategy should access less memory than the stitch strategy.
 
 
 ## License
