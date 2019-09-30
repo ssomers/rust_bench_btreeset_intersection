@@ -1,6 +1,6 @@
 extern crate proptest;
 use self::proptest::prelude::*;
-use ::rust_bench_btreeset_intersection::set:: intersection_future;
+use ::rust_bench_btreeset_intersection::set:: intersection_switch;
 use std::collections::BTreeSet;
 
 fn assert_intersection<'a, I: Iterator<Item = &'a u8>>(
@@ -90,32 +90,32 @@ prop_compose! {
 
 proptest! {
     #[test]
-    fn intersection_future_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
+    fn intersection_switch_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
+        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
     }
 
     #[test]
-    fn intersection_future_aligned_left((s1, s2) in left_aligned_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
+    fn intersection_switch_aligned_left((s1, s2) in left_aligned_ranges()) {
+        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
     }
 
     #[test]
-    fn intersection_future_aligned_right((s1, s2) in right_aligned_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
+    fn intersection_switch_aligned_right((s1, s2) in right_aligned_ranges()) {
+        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
     }
 
     #[test]
-    fn intersection_future_aligned_both((s1, s2) in aligned_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
+    fn intersection_switch_aligned_both((s1, s2) in aligned_ranges()) {
+        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
     }
 
     #[test]
-    fn intersection_future_disjoint1((s1, s2) in disjoint_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
+    fn intersection_switch_disjoint1((s1, s2) in disjoint_ranges()) {
+        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
     }
 
     #[test]
-    fn intersection_future_touching((s2, s1) in touching_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
+    fn intersection_switch_touching((s2, s1) in touching_ranges()) {
+        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
     }
 }
