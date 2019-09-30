@@ -1496,6 +1496,31 @@ pub fn intersection_future<'a, T: Ord>(
     (selve as &dyn JustToIndentAsMuch<T>).intersection(other)
 }
 
+pub fn intersection_search<'a, T: Ord>(
+    small: &'a BTreeSet<T>,
+    large: &'a BTreeSet<T>,
+) -> Intersection<'a, T> {
+    debug_assert!(small.len() <= large.len());
+    Intersection {
+        inner: IntersectionInner::Search {
+            small_iter: small.iter(),
+            large_set: &large,
+        },
+    }
+}
+
+pub fn intersection_stitch<'a, T: Ord>(
+    a: &'a BTreeSet<T>,
+    b: &'a BTreeSet<T>,
+) -> Intersection<'a, T> {
+    Intersection {
+        inner: IntersectionInner::Stitch {
+            a: a.iter(),
+            b: b.iter(),
+        },
+    }
+}
+
 pub fn intersection_swivel<'a, T: Ord>(
     a: &'a BTreeSet<T>,
     b: &'a BTreeSet<T>,
