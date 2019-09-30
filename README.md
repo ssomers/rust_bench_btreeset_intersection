@@ -3,19 +3,21 @@
 Case study comparing the performance of strategies for calculating the intersection of BTreeSet instances (and other members).
 Requires a build that supports benchmarks, like nightly.
 
-`cargo bench --features include_100k` produces a bunch of measurement in groups of 5, for instance:
+`cargo bench --features include_100k` produces a bunch of measurement in groups of 6 or less, for instance:
 
     test intersect_random_100::vs_100         ... bench:         776 ns/iter (+/- 8)
     test intersect_random_100::vs_100_future  ... bench:         480 ns/iter (+/- 6)
     test intersect_random_100::vs_100_search  ... bench:       1,579 ns/iter (+/- 47)
     test intersect_random_100::vs_100_stitch  ... bench:         474 ns/iter (+/- 6)
+    test intersect_random_100::vs_100_switch  ... bench:         552 ns/iter (+/- 6)
     test intersect_random_100::vs_100_swivel  ... bench:       1,489 ns/iter (+/- 14)
 
-Each of these 5 test measures the time spent intersecting two different sets with 100 pseudo-random elements (with the same seed each time), in order:
+Each of these benches measures the time spent intersecting two different sets with 100 pseudo-random elements (with the same seed each time), in order:
 - on top: implementation of intersection in the liballoc of the (nightly) rustc build used
 - future: proposed implementation, that attempts to choose wisely between one of the strategies below (assuming that the local build has the same optimizations as the nightly build)
 - search: iterating over the smallest of the sets, each time searching for a match in the largest set
 - stitch: same strategy as the original liballoc, but implemented more efficiently without Peekable
+- switch: stitch that switches to search when it (hopefully) becomes faster
 - swivel: bock-spring implementation, each time searching for the element equal to or greater than the lower bound of the unvisited values in the other set (never used)
 
 Tests named `intersect_stagger_500_vs_x16` intersect a set of 500 elements with a disjoint set of 8000 elements (500 times 16), with the elements spaced evenly (e.g. 0 in first set, 1..16 in second set, 17 in first set, etc). Comparing for various sizes allows estimating  a factor for which the search and the stitch strategy perform likewise:
