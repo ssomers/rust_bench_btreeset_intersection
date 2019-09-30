@@ -1,4 +1,5 @@
 // file comparable to rust/src/liballoc/benches/btree/set.rs
+// Or it used to be.
 #![feature(test)]
 
 extern crate rand;
@@ -52,6 +53,68 @@ fn stagger(n1: usize, factor: usize) -> [BTreeSet<u32>; 2] {
     sets
 }
 
+macro_rules! difference_bench {
+    ($name: ident, $sets: expr) => {
+        #[bench]
+        pub fn $name(b: &mut test::Bencher) {
+            // setup
+            let sets = $sets;
+
+            // measure
+            b.iter(|| {
+                let x = sets[0].difference(&sets[1]).count();
+                test::black_box(x);
+            })
+        }
+    };
+    ($name: ident, $sets: expr, $difference_kind: ident) => {
+        #[bench]
+        pub fn $name(b: &mut test::Bencher) {
+            use ::rust_bench_btreeset_intersection::set::$difference_kind;
+
+            // setup
+            let sets = $sets;
+
+            // measure
+            b.iter(|| {
+                let x = $difference_kind(&sets[0], &sets[1]).count();
+                test::black_box(x);
+            })
+        }
+    };
+}
+
+macro_rules! is_subset_bench {
+    ($name: ident, $sets: expr) => {
+        #[bench]
+        pub fn $name(b: &mut test::Bencher) {
+            // setup
+            let sets = $sets;
+
+            // measure
+            b.iter(|| {
+                let x = sets[0].is_subset(&sets[1]);
+                test::black_box(x);
+            })
+        }
+    };
+    ($name: ident, $sets: expr, $is_subset_kind: ident) => {
+        #[bench]
+        pub fn $name(b: &mut test::Bencher) {
+            use ::rust_bench_btreeset_intersection::set::$is_subset_kind;
+
+            // setup
+            let sets = $sets;
+
+            // measure
+            b.iter(|| {
+                let x = $is_subset_kind(&sets[0], &sets[1]);
+                test::black_box(x);
+            })
+        }
+    };
+}
+
 macro_rules! intersection_bench {
     ($name: ident, $sets: expr) => {
         #[bench]
@@ -83,6 +146,46 @@ macro_rules! intersection_bench {
     };
 }
 
+mod difference_neg_vs_pos {
+    use super::{neg, pos};
+    difference_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
+    difference_bench! {_100_neg_vs_100_pos_future, [neg(100), pos(100)], difference_future}
+    difference_bench! {_100_neg_vs_10k_pos,        [neg(100), pos(10_000)]}
+    difference_bench! {_100_neg_vs_10k_pos_future, [neg(100), pos(10_000)], difference_future}
+    difference_bench! {_100_pos_vs_100_neg,        [pos(100), neg(100)]}
+    difference_bench! {_100_pos_vs_100_neg_future, [pos(100), neg(100)], difference_future}
+    difference_bench! {_100_pos_vs_10k_neg,        [pos(100), neg(10_000)]}
+    difference_bench! {_100_pos_vs_10k_neg_future, [pos(100), neg(10_000)], difference_future}
+    difference_bench! {_10k_neg_vs_100_pos,        [neg(10_000), pos(100)]}
+    difference_bench! {_10k_neg_vs_100_pos_future, [neg(10_000), pos(100)], difference_future}
+    difference_bench! {_10k_neg_vs_10k_pos,        [neg(10_000), pos(10_000)]}
+    difference_bench! {_10k_neg_vs_10k_pos_future, [neg(10_000), pos(10_000)], difference_future}
+    difference_bench! {_10k_pos_vs_100_neg,        [pos(10_000), neg(100)]}
+    difference_bench! {_10k_pos_vs_100_neg_future, [pos(10_000), neg(100)], difference_future}
+    difference_bench! {_10k_pos_vs_10k_neg,        [pos(10_000), neg(10_000)]}
+    difference_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], difference_future}
+}
+
+mod is_subset_neg_vs_pos {
+    use super::{neg, pos};
+    is_subset_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
+    is_subset_bench! {_100_neg_vs_100_pos_future, [neg(100), pos(100)], is_subset_future}
+    is_subset_bench! {_100_neg_vs_10k_pos,        [neg(100), pos(10_000)]}
+    is_subset_bench! {_100_neg_vs_10k_pos_future, [neg(100), pos(10_000)], is_subset_future}
+    is_subset_bench! {_100_pos_vs_100_neg,        [pos(100), neg(100)]}
+    is_subset_bench! {_100_pos_vs_100_neg_future, [pos(100), neg(100)], is_subset_future}
+    is_subset_bench! {_100_pos_vs_10k_neg,        [pos(100), neg(10_000)]}
+    is_subset_bench! {_100_pos_vs_10k_neg_future, [pos(100), neg(10_000)], is_subset_future}
+    is_subset_bench! {_10k_neg_vs_100_pos,        [neg(10_000), pos(100)]}
+    is_subset_bench! {_10k_neg_vs_100_pos_future, [neg(10_000), pos(100)], is_subset_future}
+    is_subset_bench! {_10k_neg_vs_10k_pos,        [neg(10_000), pos(10_000)]}
+    is_subset_bench! {_10k_neg_vs_10k_pos_future, [neg(10_000), pos(10_000)], is_subset_future}
+    is_subset_bench! {_10k_pos_vs_100_neg,        [pos(10_000), neg(100)]}
+    is_subset_bench! {_10k_pos_vs_100_neg_future, [pos(10_000), neg(100)], is_subset_future}
+    is_subset_bench! {_10k_pos_vs_10k_neg,        [pos(10_000), neg(10_000)]}
+    is_subset_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], is_subset_future}
+}
+
 mod intersect_neg_vs_pos {
     use super::{neg, pos};
     intersection_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
@@ -111,6 +214,26 @@ mod intersect_neg_vs_pos {
     intersection_bench! {_10k_pos_vs_10k_neg_swivel, [pos(10_000), neg(10_000)], intersection_swivel}
 }
 
+mod difference_random_100 {
+    use super::random;
+    difference_bench! {vs_100,            random(100, 100)}
+    difference_bench! {vs_100_future,     random(100, 100), difference_future}
+    difference_bench! {vs_1600,           random(100, 1_600)}
+    difference_bench! {vs_1600_future,    random(100, 1_600), difference_future}
+    difference_bench! {vs_10k,            random(100, 10_000)}
+    difference_bench! {vs_10k_future,     random(100, 10_000), difference_future}
+}
+
+mod is_subset_random_100 {
+    use super::random;
+    is_subset_bench! {vs_100,            random(100, 100)}
+    is_subset_bench! {vs_100_future,     random(100, 100), is_subset_future}
+    is_subset_bench! {vs_1600,           random(100, 1_600)}
+    is_subset_bench! {vs_1600_future,    random(100, 1_600), is_subset_future}
+    is_subset_bench! {vs_10k,            random(100, 10_000)}
+    is_subset_bench! {vs_10k_future,     random(100, 10_000), is_subset_future}
+}
+
 mod intersect_random_100 {
     use super::random;
     intersection_bench! {vs_100,            random(100, 100)}
@@ -122,6 +245,26 @@ mod intersect_random_100 {
     intersection_bench! {vs_10k,            random(100, 10_000)}
     intersection_bench! {vs_10k_future,     random(100, 10_000), intersection_future}
     intersection_bench! {vs_10k_swivel,     random(100, 10_000), intersection_swivel}
+}
+
+mod difference_random_10k {
+    use super::random;
+    difference_bench! {vs_10k,            random(10_000, 10_000)}
+    difference_bench! {vs_10k_future,     random(10_000, 10_000), difference_future}
+    #[cfg(feature = "include_100k")]
+    difference_bench! {vs_160k,           random(10_000, 160_000)}
+    #[cfg(feature = "include_100k")]
+    difference_bench! {vs_160k_future,    random(10_000, 160_000), difference_future}
+}
+
+mod is_subset_random_10k {
+    use super::random;
+    is_subset_bench! {vs_10k,            random(10_000, 10_000)}
+    is_subset_bench! {vs_10k_future,     random(10_000, 10_000), is_subset_future}
+    #[cfg(feature = "include_100k")]
+    is_subset_bench! {vs_160k,           random(10_000, 160_000)}
+    #[cfg(feature = "include_100k")]
+    is_subset_bench! {vs_160k_future,    random(10_000, 160_000), is_subset_future}
 }
 
 mod intersect_random_10k {

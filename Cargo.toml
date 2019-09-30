@@ -21,4 +21,3 @@ path = "src/tests/set.rs"
 [[bench]]
 name = "collectionsbenches"
 path = "src/benches/set.rs"
- 
