@@ -637,50 +637,54 @@ impl<T: Ord> BTreeSet<T> {
     fn is_subset(&self, other: &BTreeSet<T>) -> bool {
         // Same result as self.difference(other).next().is_none()
         // but the code below is faster (hugely in some cases).
-        match self.len() {
-            x if x > other.len() => false,
-            0 => true,
-            1 => other.contains(self.iter().next().unwrap()),
-            _ => {
-                let mut self_except_first = self.iter();
-                let self_min = self_except_first.next().unwrap();
-                let mut self_except_last = self.iter();
-                let self_max = self_except_last.next_back().unwrap();
-                let mut other_iter = other.iter();
-                let other_min = other_iter.next().unwrap();
-                let other_max = other_iter.next_back().unwrap();
-                let mut self_iter = match (self_min.cmp(other_min), self_max.cmp(other_max)) {
-                    (Less, _) | (_, Greater) => return false,
-                    (Equal, Less) => self_except_first,
-                    (Greater, Equal) => self_except_last,
-                    (Equal, Equal) => {
-                        self_except_last.next();
-                        self_except_last
-                    }
-                    (Greater, Less) => self.iter(),
-                };
-
-                if self_iter.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-                    // Big difference in number of elements.
-                    for next in self_iter {
-                        if !other.contains(next) {
-                            return false;
-                        }
-                    }
-                } else {
-                    // Self is not much smaller than other set.
-                    let mut self_next = self_iter.next();
-                    while let Some(self1) = self_next {
-                        match other_iter.next().map_or(Less, |other1| self1.cmp(other1)) {
-                            Less => return false,
-                            Equal => self_next = self_iter.next(),
-                            Greater => (),
-                        }
-                    }
+        if self.len() > other.len() {
+            return false;
+        }
+        let (self_min, self_max) = if let (Some(self_min), Some(self_max)) =
+                                        (self.iter().next(), self.iter().next_back()) {
+            (self_min, self_max)
+        } else {
+            return true; // self is empty
+        };
+        let (other_min, other_max) = if let (Some(other_min), Some(other_max)) =
+                                          (other.iter().next(), other.iter().next_back()) {
+            (other_min, other_max)
+        } else {
+            return false; // other is empty
+        };
+        let mut self_iter = self.iter();
+        match self_min.cmp(other_min) {
+            Less => return false,
+            Equal => { self_iter.next(); }
+            Greater => (),
+        }
+        match self_max.cmp(other_max) {
+            Greater => return false,
+            Equal => { self_iter.next_back(); }
+            Less => (),
+        }
+        if self_iter.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
+            // Big difference in number of elements.
+            for next in self_iter {
+                if !other.contains(next) {
+                    return false;
                 }
-                true
+            }
+        } else {
+            // Self is not much smaller than other set.
+            let mut other_iter = other.iter();
+            other_iter.next();
+            other_iter.next_back();
+            let mut self_next = self_iter.next();
+            while let Some(self1) = self_next {
+                match other_iter.next().map_or(Less, |other1| self1.cmp(other1)) {
+                    Less => return false,
+                    Equal => self_next = self_iter.next(),
+                    Greater => (),
+                }
             }
         }
+        true
     }
 
     /*
