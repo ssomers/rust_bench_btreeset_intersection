@@ -88,11 +88,13 @@ prop_compose! {
 prop_compose! {
     fn disjoint_ranges()
                       (mut s1: BTreeSet<u8>,
-                       split: u8,
                        right_then_left: bool)
                       -> (BTreeSet<u8>, BTreeSet<u8>)
     {
-        let s2 = s1.split_off(&split);
+        let split = (u8::max_value() - u8::min_value()) / 2;
+        let mut s2 = s1.split_off(&split);
+        s1.insert(u8::min_value());
+        s2.insert(u8::max_value());
         if right_then_left { (s2, s1) } else { (s1, s2) }
     }
 }
@@ -100,10 +102,10 @@ prop_compose! {
 prop_compose! {
     fn touching_ranges()
                       (mut s1: BTreeSet<u8>,
-                       split: u8,
                        right_then_left: bool)
                       -> (BTreeSet<u8>, BTreeSet<u8>)
     {
+        let split = (u8::max_value() - u8::min_value()) / 2;
         let mut s2 = s1.split_off(&split);
         s1.insert(split);
         s2.insert(split);
