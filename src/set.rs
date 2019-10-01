@@ -372,7 +372,7 @@ impl<T: Ord> BTreeSet<T> {
                 let mut other_iter = other.iter();
                 let other_min = other_iter.next().unwrap();
                 let other_max = other_iter.next_back().unwrap();
-                match (Ord::cmp(self_min, other_max), Ord::cmp(self_max, other_min)) {
+                match (self_min.cmp(other_max), self_max.cmp(other_min)) {
                     (Greater, _) | (_, Less) => DifferenceInner::Iterate(self.iter()),
                     (Equal, _) => DifferenceInner::Iterate(self_except_first),
                     (_, Equal) => DifferenceInner::Iterate(self_except_last),
@@ -1519,7 +1519,7 @@ impl<'a, T: Ord> Iterator for IntersectionSwitch<'a, T> {
                 let mut a_next = a_iter.next()?;
                 let mut b_next = b_iter.next()?;
                 loop {
-                    match Ord::cmp(a_next, b_next) {
+                    match a_next.cmp(b_next) {
                         Less => {
                             if let Some(result) = search_remainder(a_iter, b_iter, b_set) {
                                 return result;
@@ -1588,7 +1588,7 @@ impl<'a, T: Ord> Iterator for IntersectionSwivel<'a, T> {
         let mut a_next = self.a_range.next()?;
         let mut b_next = self.b_range.next()?;
         loop {
-            match Ord::cmp(a_next, b_next) {
+            match a_next.cmp(b_next) {
                 Less => {
                     next_count += 1;
                     if next_count > NEXT_COUNT_MAX {
@@ -1682,7 +1682,7 @@ pub fn intersection_switch<'a, T: Ord>(
                 let self_max = self_iter.last().unwrap();
                 let other_min = other_iter.next().unwrap();
                 let other_max = other_iter.last().unwrap();
-                match (Ord::cmp(self_min, other_max), Ord::cmp(self_max, other_min)) {
+                match (self_min.cmp(other_max), self_max.cmp(other_min)) {
                     (Greater, _) | (_, Less) => IntersectionSwitchInner::Answer(None),
                     (Equal, _) => IntersectionSwitchInner::Answer(Some(self_min)),
                     (_, Equal) => IntersectionSwitchInner::Answer(Some(self_max)),
