@@ -1,7 +1,8 @@
 extern crate proptest;
 use self::proptest::prelude::*;
 use ::rust_bench_btreeset_intersection::set::{
-    difference_future, intersection_future, intersection_switch, intersection_swivel, is_subset_future,
+    difference_future, intersection_future, intersection_switch, intersection_swivel,
+    is_subset_future,
 };
 use std::collections::BTreeSet;
 
