@@ -382,19 +382,16 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                     self_iter.next_back();
                     DifferenceInner::Iterate(self_iter)
                 }
-                _ => {
-                    if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-                        DifferenceInner::Search {
-                            self_iter: self.iter(),
-                            other_set: other,
-                        }
-                    } else {
-                        DifferenceInner::Stitch {
-                            self_iter: self.iter(),
-                            other_iter: other.iter().peekable(),
-                        }
+                _ if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF => {
+                    DifferenceInner::Search {
+                        self_iter: self.iter(),
+                        other_set: other,
                     }
                 }
+                _ => DifferenceInner::Stitch {
+                    self_iter: self.iter(),
+                    other_iter: other.iter().peekable(),
+                },
             },
         }
     }
@@ -477,24 +474,22 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                 (Greater, _) | (_, Less) => IntersectionInner::Answer(None),
                 (Equal, _) => IntersectionInner::Answer(Some(self_min)),
                 (_, Equal) => IntersectionInner::Answer(Some(self_max)),
-                _ => {
-                    if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-                        IntersectionInner::Search {
-                            small_iter: self.iter(),
-                            large_set: other,
-                        }
-                    } else if other.len() <= self.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-                        IntersectionInner::Search {
-                            small_iter: other.iter(),
-                            large_set: self,
-                        }
-                    } else {
-                        IntersectionInner::Stitch {
-                            a: self.iter(),
-                            b: other.iter(),
-                        }
+                _ if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF => {
+                    IntersectionInner::Search {
+                        small_iter: self.iter(),
+                        large_set: other,
                     }
                 }
+                _ if other.len() <= self.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF => {
+                    IntersectionInner::Search {
+                        small_iter: other.iter(),
+                        large_set: self,
+                    }
+                }
+                _ => IntersectionInner::Stitch {
+                    a: self.iter(),
+                    b: other.iter(),
+                },
             },
         }
     }
@@ -1493,15 +1488,12 @@ impl<'a, T: Ord> Iterator for IntersectionSwitch<'a, T> {
                 // beyond what you'd assume, and remains stuck, but it won't
                 // be used anymore. large_iter's length remains large, so we
                 // will keep coming back here, and it won't spoil size_hint.
-                loop {
-                    if let Some(next) = small_iter.next() {
-                        if large_set.contains(&next) {
-                            return Some(Some(next));
-                        }
-                    } else {
-                        return Some(None);
+                while let Some(next) = small_iter.next() {
+                    if large_set.contains(&next) {
+                        return Some(Some(next));
                     }
                 }
+                Some(None)
             }
         }
 
