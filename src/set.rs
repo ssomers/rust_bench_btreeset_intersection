@@ -2,6 +2,7 @@
 use core::cmp::Ordering::{self, Equal, Greater, Less};
 use core::cmp::{max, min};
 use core::fmt::{self};
+use core::iter::Peekable;
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -263,10 +264,8 @@ impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
 #[stable(feature = "rust1", since = "1.0.0")]
 */
 pub struct Union<'a, T: 'a> {
-    a: Iter<'a, T>,
-    b: Iter<'a, T>,
-    past_ord: Ordering,
-    peeked: Option<&'a T>,
+    a: Peekable<Iter<'a, T>>,
+    b: Peekable<Iter<'a, T>>,
 }
 
 /*
@@ -275,11 +274,9 @@ pub struct Union<'a, T: 'a> {
 impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Union")
-            .field(&self.a)
-            .field(&self.b)
-            .field(&self.past_ord)
-            .field(&self.peeked)
-            .finish()
+         .field(&self.a)
+         .field(&self.b)
+         .finish()
     }
 }
 
@@ -546,10 +543,8 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
     */
     fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
         Union {
-            a: self.iter(),
-            b: other.iter(),
-            past_ord: Equal,
-            peeked: None,
+            a: self.iter().peekable(),
+            b: other.iter().peekable(),
         }
     }
 
@@ -1468,8 +1463,6 @@ impl<T> Clone for Union<'_, T> {
         Union {
             a: self.a.clone(),
             b: self.b.clone(),
-            past_ord: self.past_ord,
-            peeked: self.peeked,
         }
     }
 }
@@ -1480,35 +1473,20 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        let a_next = if self.past_ord == Greater {
-            self.peeked
-        } else {
-            self.a.next()
-        };
-        let b_next = if self.past_ord == Less {
-            self.peeked
-        } else {
-            self.b.next()
-        };
-        self.past_ord = cmp_opt(a_next, b_next, Greater, Less);
-        self.peeked = match self.past_ord {
-            Less => b_next,
-            Equal => None,
-            Greater => a_next,
-        };
-        match self.past_ord {
-            Less => a_next,
-            Equal => a_next,
-            Greater => b_next,
+        match cmp_opt(self.a.peek(), self.b.peek(), Greater, Less) {
+            Less => self.a.next(),
+            Equal => {
+                self.b.next();
+                self.a.next()
+            }
+            Greater => self.b.next(),
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let peeked = if self.peeked.is_some() { 1 } else { 0 };
-        let a_len = self.a.len(); // + peeked if self.past_ord == Less
-        let b_len = self.b.len(); // + peeked if self.past_ord == Greater
-        (max(a_len, b_len), Some(a_len + b_len + peeked))
-        // minimum may be underestimated by 1
+        let a_len = self.a.len();
+        let b_len = self.b.len();
+        (max(a_len, b_len), Some(a_len + b_len))
     }
 }
 
