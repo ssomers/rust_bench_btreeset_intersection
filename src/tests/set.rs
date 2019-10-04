@@ -2,7 +2,7 @@ extern crate proptest;
 use self::proptest::prelude::*;
 use ::rust_bench_btreeset_intersection::set::{
     difference_future, intersection_future, intersection_switch, intersection_swivel,
-    is_subset_future,
+    is_subset_future, symmdiff_future, union_future,
 };
 use std::collections::BTreeSet;
 
@@ -23,7 +23,7 @@ fn assert_difference<'a, I: Iterator<Item = &'a u8>>(
     for _ in 0..42 {
         prop_assert!(it.next().is_none()); // it's announced to be a fused iterator
     }
-    prop_assert_eq!(s1.iter().filter(|elt| !s2.contains(elt)).count(), count);
+    prop_assert_eq!(count, s1.iter().filter(|elt| !s2.contains(elt)).count());
     Ok(())
 }
 
@@ -44,7 +44,53 @@ fn assert_intersection<'a, I: Iterator<Item = &'a u8>>(
     for _ in 0..42 {
         prop_assert!(it.next().is_none()); // it's announced to be a fused iterator
     }
-    prop_assert_eq!(s1.iter().filter(|elt| s2.contains(elt)).count(), count);
+    prop_assert_eq!(count, s1.iter().filter(|elt| s2.contains(elt)).count());
+    Ok(())
+}
+
+fn assert_symmdiff<'a, I: Iterator<Item = &'a u8>>(
+    mut it: I,
+    s1: &'a BTreeSet<u8>,
+    s2: &'a BTreeSet<u8>,
+) -> Result<(), TestCaseError> {
+    let mut count: usize = 0;
+    let mut previous: i32 = -1;
+    while let Some(&elt) = it.next() {
+        prop_assert_eq!(s1.contains(&elt), !s2.contains(&elt));
+        prop_assert!(i32::from(elt) > previous);
+        count += 1;
+        previous = i32::from(elt);
+    }
+    for _ in 0..42 {
+        prop_assert!(it.next().is_none()); // it's announced to be a fused iterator
+    }
+    prop_assert_eq!(
+        count,
+        s1.len() + s2.len() - 2 * s1.iter().filter(|elt| s2.contains(elt)).count()
+    );
+    Ok(())
+}
+
+fn assert_union<'a, I: Iterator<Item = &'a u8>>(
+    mut it: I,
+    s1: &'a BTreeSet<u8>,
+    s2: &'a BTreeSet<u8>,
+) -> Result<(), TestCaseError> {
+    let mut count: usize = 0;
+    let mut previous: i32 = -1;
+    while let Some(&elt) = it.next() {
+        prop_assert!(s1.contains(&elt) || s2.contains(&elt));
+        prop_assert!(i32::from(elt) > previous);
+        count += 1;
+        previous = i32::from(elt);
+    }
+    for _ in 0..42 {
+        prop_assert!(it.next().is_none()); // it's announced to be a fused iterator
+    }
+    prop_assert_eq!(
+        count,
+        s1.len() + s2.len() - s1.iter().filter(|elt| s2.contains(elt)).count()
+    );
     Ok(())
 }
 
@@ -203,6 +249,66 @@ proptest! {
     #[test]
     fn intersection_future_touching((s2, s1) in touching_ranges()) {
         assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn symmdiff_future_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
+        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn symmdiff_future_aligned_left((s1, s2) in left_aligned_ranges()) {
+        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn symmdiff_future_aligned_right((s1, s2) in right_aligned_ranges()) {
+        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn symmdiff_future_aligned_both((s1, s2) in aligned_ranges()) {
+        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn symmdiff_future_disjoint1((s1, s2) in disjoint_ranges()) {
+        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn symmdiff_future_touching((s2, s1) in touching_ranges()) {
+        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn union_future_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
+        assert_union(union_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn union_future_aligned_left((s1, s2) in left_aligned_ranges()) {
+        assert_union(union_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn union_future_aligned_right((s1, s2) in right_aligned_ranges()) {
+        assert_union(union_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn union_future_aligned_both((s1, s2) in aligned_ranges()) {
+        assert_union(union_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn union_future_disjoint1((s1, s2) in disjoint_ranges()) {
+        assert_union(union_future(&s1, &s2), &s1, &s2)?
+    }
+
+    #[test]
+    fn union_future_touching((s2, s1) in touching_ranges()) {
+        assert_union(union_future(&s1, &s2), &s1, &s2)?
     }
 
     #[test]

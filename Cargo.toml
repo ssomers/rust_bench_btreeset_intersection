@@ -8,6 +8,7 @@ edition = "2018"
 
 [features]
 include_100k = []
+stagger = []
 
 [dev-dependencies]
 proptest = "0.9"

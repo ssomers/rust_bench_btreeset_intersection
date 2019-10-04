@@ -1,6 +1,6 @@
 // file comparable to rust/src/liballoc/collections/btree/set.rs
-use core::cmp::min;
-use core::cmp::Ordering::{Equal, Greater, Less};
+use core::cmp::Ordering::{self, Equal, Greater, Less};
+use core::cmp::{max, min};
 use core::fmt::{self};
 use core::iter::Peekable;
 use std::collections::btree_set::{Iter, Range};
@@ -176,12 +176,15 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
 /// [`symmetric_difference`]: struct.BTreeSet.html#method.symmetric_difference
 /*
 #[stable(feature = "rust1", since = "1.0.0")]
+*/
 pub struct SymmetricDifference<'a, T: 'a> {
     a: Peekable<Iter<'a, T>>,
     b: Peekable<Iter<'a, T>>,
 }
 
+/*
 #[stable(feature = "collection_debug", since = "1.17.0")]
+*/
 impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("SymmetricDifference")
@@ -198,6 +201,7 @@ impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
 ///
 /// [`BTreeSet`]: struct.BTreeSet.html
 /// [`intersection`]: struct.BTreeSet.html#method.intersection
+/*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
 pub struct Intersection<'a, T: 'a> {
@@ -242,7 +246,6 @@ impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
     }
 }
 
-/*
 /// A lazy iterator producing elements in the union of `BTreeSet`s.
 ///
 /// This `struct` is created by the [`union`] method on [`BTreeSet`].
@@ -250,13 +253,17 @@ impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
 ///
 /// [`BTreeSet`]: struct.BTreeSet.html
 /// [`union`]: struct.BTreeSet.html#method.union
+/*
 #[stable(feature = "rust1", since = "1.0.0")]
+*/
 pub struct Union<'a, T: 'a> {
     a: Peekable<Iter<'a, T>>,
     b: Peekable<Iter<'a, T>>,
 }
 
+/*
 #[stable(feature = "collection_debug", since = "1.17.0")]
+*/
 impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Union")
@@ -265,7 +272,6 @@ impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
          .finish()
     }
 }
-*/
 
 // This constant is used by functions that compare two sets.
 // It estimates the relative size at which searching performs better
@@ -346,7 +352,9 @@ impl<T: Ord> BTreeSet<T> {
     */
 trait JustToIndentAsMuch<T> {
     fn difference<'a>(&'a self, other: &'a BTreeSet<T>) -> Difference<'a, T>;
+    fn symmetric_difference<'a>(&'a self, other: &'a BTreeSet<T>) -> SymmetricDifference<'a, T>;
     fn intersection<'a>(&'a self, other: &'a BTreeSet<T>) -> Intersection<'a, T>;
+    fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T>;
     fn is_subset(&self, other: &BTreeSet<T>) -> bool;
 }
 impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
@@ -421,12 +429,15 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
     pub fn symmetric_difference<'a>(&'a self,
                                     other: &'a BTreeSet<T>)
                                     -> SymmetricDifference<'a, T> {
+    */
+    fn symmetric_difference<'a>(&'a self, other: &'a BTreeSet<T>) -> SymmetricDifference<'a, T> {
         SymmetricDifference {
             a: self.iter().peekable(),
             b: other.iter().peekable(),
         }
     }
 
+    /*
     /// Visits the values representing the intersection,
     /// i.e., the values that are both in `self` and `other`,
     /// in ascending order.
@@ -515,12 +526,15 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
+    */
+    fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
         Union {
             a: self.iter().peekable(),
             b: other.iter().peekable(),
         }
     }
 
+    /*
     /// Clears the set, removing all values.
     ///
     /// # Examples
@@ -1196,6 +1210,7 @@ impl<'a, T> DoubleEndedIterator for Range<'a, T> {
 
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T> FusedIterator for Range<'_, T> {}
+*/
 
 /// Compares `x` and `y`, but return `short` if x is None and `long` if y is None
 fn cmp_opt<T: Ord>(x: Option<&T>, y: Option<&T>, short: Ordering, long: Ordering) -> Ordering {
@@ -1206,6 +1221,7 @@ fn cmp_opt<T: Ord>(x: Option<&T>, y: Option<&T>, short: Ordering, long: Ordering
     }
 }
 
+/*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
 impl<T> Clone for Difference<'_, T> {
@@ -1294,6 +1310,7 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
 impl<T: Ord> FusedIterator for Difference<'_, T> {}
 
 #[stable(feature = "rust1", since = "1.0.0")]
+*/
 impl<T> Clone for SymmetricDifference<'_, T> {
     fn clone(&self) -> Self {
         SymmetricDifference {
@@ -1302,7 +1319,9 @@ impl<T> Clone for SymmetricDifference<'_, T> {
         }
     }
 }
+/*
 #[stable(feature = "rust1", since = "1.0.0")]
+*/
 impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
     type Item = &'a T;
 
@@ -1324,6 +1343,7 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
     }
 }
 
+/*
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T: Ord> FusedIterator for SymmetricDifference<'_, T> {}
 
@@ -1402,6 +1422,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
 impl<T: Ord> FusedIterator for Intersection<'_, T> {}
 
 #[stable(feature = "rust1", since = "1.0.0")]
+*/
 impl<T> Clone for Union<'_, T> {
     fn clone(&self) -> Self {
         Union {
@@ -1410,7 +1431,9 @@ impl<T> Clone for Union<'_, T> {
         }
     }
 }
+/*
 #[stable(feature = "rust1", since = "1.0.0")]
+*/
 impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
@@ -1432,6 +1455,7 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     }
 }
 
+/*
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T: Ord> FusedIterator for Union<'_, T> {}
 */
@@ -1702,4 +1726,15 @@ pub fn intersection_swivel<'a, T: Ord>(
         b_range: b.range(..),
         b_set: &b,
     }
+}
+
+pub fn symmdiff_future<'a, T: Ord>(
+    selve: &'a BTreeSet<T>,
+    other: &'a BTreeSet<T>,
+) -> SymmetricDifference<'a, T> {
+    (selve as &dyn JustToIndentAsMuch<T>).symmetric_difference(other)
+}
+
+pub fn union_future<'a, T: Ord>(selve: &'a BTreeSet<T>, other: &'a BTreeSet<T>) -> Union<'a, T> {
+    (selve as &dyn JustToIndentAsMuch<T>).union(other)
 }
