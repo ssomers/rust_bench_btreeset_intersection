@@ -2,7 +2,6 @@
 use core::cmp::Ordering::{self, Equal, Greater, Less};
 use core::cmp::{max, min};
 use core::fmt::{self};
-use core::mem;
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -119,11 +118,11 @@ pub struct Range<'a, T: 'a> {
 }
 */
 
+// Faster and slimmer aLternative to Peekable if you always peek() before next()
 struct Peeking<I: ExactSizeIterator> {
     iter: I,
     peeked: Option<I::Item>,
 }
-
 impl<I> Clone for Peeking<I>
 where
     I: ExactSizeIterator + Clone,
@@ -153,8 +152,14 @@ where
         }
     }
 
-    fn consume(&mut self) -> Option<I::Item> {
-        mem::replace(&mut self.peeked, self.iter.next())
+    fn peek(&mut self) -> Option<I::Item> {
+        self.peeked
+    }
+
+    fn next(&mut self) -> Option<I::Item> {
+        let res = self.peeked;
+        self.peeked = self.iter.next();
+        res
     }
 }
 
@@ -1308,16 +1313,16 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
                 let mut self_next = self_iter.next()?;
                 loop {
                     match other_iter
-                        .peeked
+                        .peek()
                         .map_or(Less, |other_next| self_next.cmp(other_next))
                     {
                         Less => return Some(self_next),
                         Equal => {
                             self_next = self_iter.next()?;
-                            other_iter.consume();
+                            other_iter.next();
                         }
                         Greater => {
-                            other_iter.consume();
+                            other_iter.next();
                         }
                     }
                 }
@@ -1373,13 +1378,13 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            match cmp_opt(self.a.peeked, self.b.peeked, Greater, Less) {
-                Less => return self.a.consume(),
+            match cmp_opt(self.a.peek(), self.b.peek(), Greater, Less) {
+                Less => return self.a.next(),
                 Equal => {
-                    self.a.consume();
-                    self.b.consume();
+                    self.a.next();
+                    self.b.next();
                 }
-                Greater => return self.b.consume(),
+                Greater => return self.b.next(),
             }
         }
     }
@@ -1484,13 +1489,13 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        match cmp_opt(self.a.peeked, self.b.peeked, Greater, Less) {
-            Less => self.a.consume(),
+        match cmp_opt(self.a.peek(), self.b.peek(), Greater, Less) {
+            Less => self.a.next(),
             Equal => {
-                self.b.consume();
-                self.a.consume()
+                self.b.next();
+                self.a.next()
             }
-            Greater => self.b.consume(),
+            Greater => self.b.next(),
         }
     }
 
