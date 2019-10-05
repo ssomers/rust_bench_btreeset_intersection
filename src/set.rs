@@ -2,6 +2,7 @@
 use core::cmp::Ordering::{self, Equal, Greater, Less};
 use core::cmp::{max, min};
 use core::fmt::{self};
+use core::iter::Peekable;
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -13,7 +14,7 @@ use core::borrow::Borrow;
 use core::cmp::Ordering::{self, Less, Greater, Equal};
 use core::cmp::{max, min};
 use core::fmt::{self, Debug};
-use core::iter::{FromIterator, FusedIterator};
+use core::iter::{Peekable, FromIterator, FusedIterator};
 use core::ops::{BitOr, BitAnd, BitXor, Sub, RangeBounds};
 
 use crate::collections::btree_map::{self, BTreeMap, Keys};
@@ -118,51 +119,6 @@ pub struct Range<'a, T: 'a> {
 }
 */
 
-// Faster and slimmer aLternative to Peekable if you always peek() before next()
-struct Peeking<I: ExactSizeIterator> {
-    iter: I,
-    peeked: Option<I::Item>,
-}
-impl<I> Clone for Peeking<I>
-where
-    I: ExactSizeIterator + Clone,
-    I::Item: Copy,
-{
-    fn clone(&self) -> Self {
-        Peeking {
-            iter: self.iter.clone(),
-            peeked: self.peeked,
-        }
-    }
-}
-impl<I> Peeking<I>
-where
-    I: ExactSizeIterator + Clone,
-    I::Item: Copy,
-{
-    fn new(mut iter: I) -> Self {
-        let peeked = iter.next();
-        Peeking { iter, peeked }
-    }
-
-    fn len(&self) -> usize {
-        match self.peeked {
-            None => 0,
-            Some(_) => 1 + self.iter.len(),
-        }
-    }
-
-    fn peek(&mut self) -> Option<I::Item> {
-        self.peeked
-    }
-
-    fn next(&mut self) -> Option<I::Item> {
-        let res = self.peeked;
-        self.peeked = self.iter.next();
-        res
-    }
-}
-
 /// A lazy iterator producing elements in the difference of `BTreeSet`s.
 ///
 /// This `struct` is created by the [`difference`] method on [`BTreeSet`].
@@ -180,7 +136,7 @@ enum DifferenceInner<'a, T: 'a> {
     Stitch {
         // iterate all of self and some of other, spotting matches along the way
         self_iter: Iter<'a, T>,
-        other_iter: Peeking<Iter<'a, T>>,
+        other_iter: Peekable<Iter<'a, T>>,
     },
     Search {
         // iterate a small set, look up in the large set
@@ -202,14 +158,84 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
             } => f
                 .debug_tuple("Difference")
                 .field(&self_iter)
-                .field(&other_iter.peeked)
-                .field(&other_iter.iter)
+                .field(&other_iter)
                 .finish(),
             DifferenceInner::Search {
                 self_iter,
                 other_set: _,
             } => f.debug_tuple("Difference").field(&self_iter).finish(),
             DifferenceInner::Iterate(iter) => f.debug_tuple("Difference").field(&iter).finish(),
+        }
+    }
+}
+
+/// Core of SymmetricDifference and Union, more efficient than btree.map.MergeIter
+struct SetMergeIter<'a, T: 'a> {
+    a: Iter<'a, T>,
+    b: Iter<'a, T>,
+    previous_origin: Option<Ordering>,
+    peeked: Option<&'a T>,
+}
+impl<'a, T> Clone for SetMergeIter<'a, T> {
+    fn clone(&self) -> Self {
+        SetMergeIter {
+            a: self.a.clone(),
+            b: self.b.clone(),
+            previous_origin: self.previous_origin,
+            peeked: self.peeked,
+        }
+    }
+}
+impl<'a, T: Ord> SetMergeIter<'a, T> {
+    fn new(a: Iter<'a, T>, b: Iter<'a, T>) -> Self {
+        SetMergeIter {
+            a,
+            b,
+            previous_origin: Some(Equal),
+            peeked: None,
+        }
+    }
+
+    // Like Iterator::next, also returning which side(s) the element (if any) came from
+    fn advance(&mut self) -> (Option<&'a T>, Option<Ordering>) {
+        let a_next = match self.previous_origin {
+            None => None,
+            Some(Greater) => self.peeked,
+            _ => self.a.next(),
+        };
+        let b_next = match self.previous_origin {
+            None => None,
+            Some(Less) => self.peeked,
+            _ => self.b.next(),
+        };
+        self.previous_origin = match (a_next, b_next) {
+            (None, None) => None,
+            (None, _) => Some(Greater),
+            (_, None) => Some(Less),
+            (Some(a), Some(b)) => Some(a.cmp(b)),
+        };
+        self.peeked = match self.previous_origin {
+            Some(Greater) => a_next,
+            Some(Less) => b_next,
+            _ => None,
+        };
+        (
+            match self.previous_origin {
+                None => None,
+                Some(Less) => a_next,
+                Some(Equal) => a_next,
+                Some(Greater) => b_next,
+            },
+            self.previous_origin,
+        )
+    }
+
+    fn lens(&self) -> (usize, usize) {
+        match self.previous_origin {
+            None => (0, 0),
+            Some(Less) => (self.a.len(), self.b.len() + 1),
+            Some(Equal) => (self.a.len(), self.b.len()),
+            Some(Greater) => (1 + self.a.len(), self.b.len()),
         }
     }
 }
@@ -224,10 +250,7 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
 /*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
-pub struct SymmetricDifference<'a, T: 'a> {
-    a: Peeking<Iter<'a, T>>,
-    b: Peeking<Iter<'a, T>>,
-}
+pub struct SymmetricDifference<'a, T: 'a>(SetMergeIter<'a, T>);
 
 /*
 #[stable(feature = "collection_debug", since = "1.17.0")]
@@ -235,10 +258,10 @@ pub struct SymmetricDifference<'a, T: 'a> {
 impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("SymmetricDifference")
-            .field(&self.a.peeked)
-            .field(&self.a.iter)
-            .field(&self.b.peeked)
-            .field(&self.b.iter)
+            .field(&self.0.a)
+            .field(&self.0.b)
+            .field(&self.0.previous_origin)
+            .field(&self.0.peeked)
             .finish()
     }
 }
@@ -305,10 +328,7 @@ impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
 /*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
-pub struct Union<'a, T: 'a> {
-    a: Peeking<Iter<'a, T>>,
-    b: Peeking<Iter<'a, T>>,
-}
+pub struct Union<'a, T: 'a>(SetMergeIter<'a, T>);
 
 /*
 #[stable(feature = "collection_debug", since = "1.17.0")]
@@ -316,10 +336,10 @@ pub struct Union<'a, T: 'a> {
 impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Union")
-            .field(&self.a.peeked)
-            .field(&self.a.iter)
-            .field(&self.b.peeked)
-            .field(&self.b.iter)
+            .field(&self.0.a)
+            .field(&self.0.b)
+            .field(&self.0.previous_origin)
+            .field(&self.0.peeked)
             .finish()
     }
 }
@@ -449,7 +469,7 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                 }
                 _ => DifferenceInner::Stitch {
                     self_iter: self.iter(),
-                    other_iter: Peeking::new(other.iter()),
+                    other_iter: other.iter().peekable(),
                 },
             },
         }
@@ -482,10 +502,7 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                                     -> SymmetricDifference<'a, T> {
     */
     fn symmetric_difference<'a>(&'a self, other: &'a BTreeSet<T>) -> SymmetricDifference<'a, T> {
-        SymmetricDifference {
-            a: Peeking::new(self.iter()),
-            b: Peeking::new(other.iter()),
-        }
+        SymmetricDifference(SetMergeIter::new(self.iter(), other.iter()))
     }
 
     /*
@@ -579,10 +596,7 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
     pub fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
     */
     fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
-        Union {
-            a: Peeking::new(self.iter()),
-            b: Peeking::new(other.iter()),
-        }
+        Union(SetMergeIter::new(self.iter(), other.iter()))
     }
 
     /*
@@ -1261,18 +1275,7 @@ impl<'a, T> DoubleEndedIterator for Range<'a, T> {
 
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T> FusedIterator for Range<'_, T> {}
-*/
 
-/// Compares `x` and `y`, but return `short` if x is None and `long` if y is None
-fn cmp_opt<T: Ord>(x: Option<&T>, y: Option<&T>, short: Ordering, long: Ordering) -> Ordering {
-    match (x, y) {
-        (None, _) => short,
-        (_, None) => long,
-        (Some(x1), Some(y1)) => x1.cmp(y1),
-    }
-}
-
-/*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
 impl<T> Clone for Difference<'_, T> {
@@ -1364,10 +1367,7 @@ impl<T: Ord> FusedIterator for Difference<'_, T> {}
 */
 impl<T> Clone for SymmetricDifference<'_, T> {
     fn clone(&self) -> Self {
-        SymmetricDifference {
-            a: self.a.clone(),
-            b: self.b.clone(),
-        }
+        SymmetricDifference(self.0.clone())
     }
 }
 /*
@@ -1378,19 +1378,16 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            match cmp_opt(self.a.peek(), self.b.peek(), Greater, Less) {
-                Less => return self.a.next(),
-                Equal => {
-                    self.a.next();
-                    self.b.next();
-                }
-                Greater => return self.b.next(),
+            let (next, ord) = self.0.advance();
+            if ord != Some(Equal) {
+                return next;
             }
         }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, Some(self.a.len() + self.b.len()))
+        let (a_len, b_len) = self.0.lens();
+        (0, Some(a_len + b_len))
     }
 }
 
@@ -1476,10 +1473,7 @@ impl<T: Ord> FusedIterator for Intersection<'_, T> {}
 */
 impl<T> Clone for Union<'_, T> {
     fn clone(&self) -> Self {
-        Union {
-            a: self.a.clone(),
-            b: self.b.clone(),
-        }
+        Union(self.0.clone())
     }
 }
 /*
@@ -1489,19 +1483,11 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        match cmp_opt(self.a.peek(), self.b.peek(), Greater, Less) {
-            Less => self.a.next(),
-            Equal => {
-                self.b.next();
-                self.a.next()
-            }
-            Greater => self.b.next(),
-        }
+        self.0.advance().0
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let a_len = self.a.len();
-        let b_len = self.b.len();
+        let (a_len, b_len) = self.0.lens();
         (max(a_len, b_len), Some(a_len + b_len))
     }
 }
