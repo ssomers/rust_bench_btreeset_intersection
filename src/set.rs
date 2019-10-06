@@ -2,7 +2,7 @@
 use core::cmp::Ordering::{Equal, Greater, Less};
 use core::cmp::{max, min};
 use core::fmt::{self};
-use core::iter::{FusedIterator};
+use core::iter::FusedIterator;
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -11,7 +11,7 @@ use std::collections::BTreeSet;
 // to TreeMap
 
 use core::borrow::Borrow;
-use core::cmp::Ordering::{self, Less, Greater, Equal};
+use core::cmp::Ordering::{Less, Greater, Equal};
 use core::cmp::{max, min};
 use core::fmt::{self, Debug};
 use core::iter::{FromIterator, FusedIterator};
@@ -123,7 +123,11 @@ pub struct Range<'a, T: 'a> {
 /// and if there is no penalty for peeking early.
 /// It always has one item read ahead.
 #[derive(Clone)]
-struct Peeking<I: Iterator> {
+struct Peeking<I>
+where
+    I: Iterator,
+    I::Item: Copy,
+{
     head: Option<I::Item>,
     tail: I,
 }
@@ -158,32 +162,48 @@ where
 /// Core of SymmetricDifference and Union.
 /// More efficient than btree.map.MergeIter and has next()
 /// reporting how many sets contained the element (if any).
-struct SetMergeIter<'a, T: 'a> {
-    a: Peeking<Iter<'a, T>>,
-    b: Peeking<Iter<'a, T>>,
+struct MergeIter<I>
+where
+    I: Iterator,
+    I::Item: Copy,
+{
+    a: Peeking<I>,
+    b: Peeking<I>,
 }
-impl<'a, T> Clone for SetMergeIter<'a, T> {
+impl<I> Clone for MergeIter<I>
+where
+    I: Clone + Iterator,
+    I::Item: Copy,
+{
     fn clone(&self) -> Self {
-        SetMergeIter {
+        MergeIter {
             a: self.a.clone(),
             b: self.b.clone(),
         }
     }
 }
-impl<'a, T: Ord> SetMergeIter<'a, T> {
-    fn new(a: Iter<'a, T>, b: Iter<'a, T>) -> Self {
-        SetMergeIter {
+impl<I> MergeIter<I>
+where
+    I: Clone + ExactSizeIterator + FusedIterator,
+    I::Item: Copy + Ord,
+{
+    fn new(a: I, b: I) -> Self {
+        MergeIter {
             a: Peeking::new(a),
             b: Peeking::new(b),
         }
     }
 
-    fn next(&mut self) -> (Option<&'a T>, usize) {
+    fn next(&mut self) -> Option<I::Item> {
+        self.next_counted().0
+    }
+
+    fn next_counted(&mut self) -> (Option<I::Item>, usize) {
         let ord = match (self.a.peek(), self.b.peek()) {
             (None, None) => return (None, 0),
             (_, None) => Less,
             (None, _) => Greater,
-            (Some(a), Some(b)) => a.cmp(b),
+            (Some(a), Some(b)) => a.cmp(&b),
         };
         match ord {
             Less => (self.a.next(), 1),
@@ -257,7 +277,7 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
 /*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
-pub struct SymmetricDifference<'a, T: 'a>(SetMergeIter<'a, T>);
+pub struct SymmetricDifference<'a, T: 'a>(MergeIter<Iter<'a, T>>);
 
 /*
 #[stable(feature = "collection_debug", since = "1.17.0")]
@@ -335,7 +355,7 @@ impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
 /*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
-pub struct Union<'a, T: 'a>(SetMergeIter<'a, T>);
+pub struct Union<'a, T: 'a>(MergeIter<Iter<'a, T>>);
 
 /*
 #[stable(feature = "collection_debug", since = "1.17.0")]
@@ -509,7 +529,7 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                                     -> SymmetricDifference<'a, T> {
     */
     fn symmetric_difference<'a>(&'a self, other: &'a BTreeSet<T>) -> SymmetricDifference<'a, T> {
-        SymmetricDifference(SetMergeIter::new(self.iter(), other.iter()))
+        SymmetricDifference(MergeIter::new(self.iter(), other.iter()))
     }
 
     /*
@@ -603,7 +623,7 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
     pub fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
     */
     fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
-        Union(SetMergeIter::new(self.iter(), other.iter()))
+        Union(MergeIter::new(self.iter(), other.iter()))
     }
 
     /*
@@ -1385,7 +1405,7 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            let (next, count) = self.0.next();
+            let (next, count) = self.0.next_counted();
             if count <= 1 {
                 return next;
             }
@@ -1489,8 +1509,7 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        let (next, _count) = self.0.next();
-        next
+        self.0.next()
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
