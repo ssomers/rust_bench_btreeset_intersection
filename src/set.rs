@@ -173,16 +173,18 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
 struct SetMergeIter<'a, T: 'a> {
     a: Iter<'a, T>,
     b: Iter<'a, T>,
-    previous_origin: Option<Ordering>,
     peeked: Option<&'a T>,
+    a_peeked: bool,
+    b_peeked: bool,
 }
 impl<'a, T> Clone for SetMergeIter<'a, T> {
     fn clone(&self) -> Self {
         SetMergeIter {
             a: self.a.clone(),
             b: self.b.clone(),
-            previous_origin: self.previous_origin,
             peeked: self.peeked,
+            a_peeked: self.a_peeked,
+            b_peeked: self.b_peeked,
         }
     }
 }
@@ -191,52 +193,64 @@ impl<'a, T: Ord> SetMergeIter<'a, T> {
         SetMergeIter {
             a,
             b,
-            previous_origin: Some(Equal),
             peeked: None,
+            a_peeked: false,
+            b_peeked: false,
         }
     }
 
     // Like Iterator::next, also returning which side(s) the element (if any) came from
     fn advance(&mut self) -> (Option<&'a T>, Option<Ordering>) {
-        let a_next = match self.previous_origin {
-            None => None,
-            Some(Greater) => self.peeked,
-            _ => self.a.next(),
+        let a_next = match self.a_peeked {
+            true => self.peeked,
+            false => self.a.next(),
         };
-        let b_next = match self.previous_origin {
-            None => None,
-            Some(Less) => self.peeked,
-            _ => self.b.next(),
+        let b_next = match self.b_peeked {
+            true => self.peeked,
+            false => self.b.next(),
         };
-        self.previous_origin = match (a_next, b_next) {
-            (None, None) => None,
-            (None, _) => Some(Greater),
-            (_, None) => Some(Less),
-            (Some(a), Some(b)) => Some(a.cmp(b)),
-        };
-        self.peeked = match self.previous_origin {
-            Some(Greater) => a_next,
-            Some(Less) => b_next,
-            _ => None,
+        let ord = match (a_next, b_next) {
+            (None, None) => {
+                self.peeked = None;
+                self.a_peeked = true;
+                self.b_peeked = true;
+                return (None, None);
+            }
+            (None, _) => Greater,
+            (_, None) => Less,
+            (Some(a), Some(b)) => a.cmp(b),
         };
         (
-            match self.previous_origin {
-                None => None,
-                Some(Less) => a_next,
-                Some(Equal) => a_next,
-                Some(Greater) => b_next,
+            match ord {
+                Less => {
+                    self.peeked = b_next;
+                    self.b_peeked = true;
+                    self.a_peeked = false;
+                    a_next
+                }
+                Equal => {
+                    self.peeked = None;
+                    self.a_peeked = false;
+                    self.b_peeked = false;
+                    a_next
+                }
+                Greater => {
+                    self.peeked = a_next;
+                    self.a_peeked = true;
+                    self.b_peeked = false;
+                    b_next
+                }
             },
-            self.previous_origin,
+            Some(ord),
         )
     }
 
     fn lens(&self) -> (usize, usize) {
-        match self.previous_origin {
-            None => (0, 0),
-            Some(Less) => (self.a.len(), self.b.len() + 1),
-            Some(Equal) => (self.a.len(), self.b.len()),
-            Some(Greater) => (1 + self.a.len(), self.b.len()),
-        }
+        let peeked = if self.peeked.is_some() { 1 } else { 0 };
+        (
+            self.a.len() + if self.a_peeked { peeked } else { 0 },
+            self.b.len() + if self.b_peeked { peeked } else { 0 },
+        )
     }
 }
 
@@ -258,9 +272,10 @@ pub struct SymmetricDifference<'a, T: 'a>(SetMergeIter<'a, T>);
 impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("SymmetricDifference")
+            .field(&self.0.a_peeked)
             .field(&self.0.a)
+            .field(&self.0.b_peeked)
             .field(&self.0.b)
-            .field(&self.0.previous_origin)
             .field(&self.0.peeked)
             .finish()
     }
@@ -336,9 +351,10 @@ pub struct Union<'a, T: 'a>(SetMergeIter<'a, T>);
 impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Union")
+            .field(&self.0.a_peeked)
             .field(&self.0.a)
+            .field(&self.0.b_peeked)
             .field(&self.0.b)
-            .field(&self.0.previous_origin)
             .field(&self.0.peeked)
             .finish()
     }
