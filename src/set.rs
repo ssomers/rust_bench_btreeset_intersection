@@ -1,7 +1,8 @@
 // file comparable to rust/src/liballoc/collections/btree/set.rs
-use core::cmp::Ordering::{self, Equal, Greater, Less};
+use core::cmp::Ordering::{Equal, Greater, Less};
 use core::cmp::{max, min};
 use core::fmt::{self};
+use core::iter::{FusedIterator};
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -118,27 +119,17 @@ pub struct Range<'a, T: 'a> {
 }
 */
 
-/// Faster and smaller aLternative to Peekable for cheaply copied items.
+/// Faster and smaller aLternative to Peekable, if copying items is cheap
+/// and if there is no penalty for peeking early.
 /// It always has one item read ahead.
+#[derive(Clone)]
 struct Peeking<I: Iterator> {
     head: Option<I::Item>,
     tail: I,
 }
-impl<I> Clone for Peeking<I>
-where
-    I: ExactSizeIterator + Clone,
-    I::Item: Copy,
-{
-    fn clone(&self) -> Self {
-        Peeking {
-            head: self.head,
-            tail: self.tail.clone(),
-        }
-    }
-}
 impl<I> Peeking<I>
 where
-    I: ExactSizeIterator + Clone,
+    I: ExactSizeIterator + FusedIterator + Clone,
     I::Item: Copy,
 {
     fn new(mut iter: I) -> Self {
@@ -146,18 +137,14 @@ where
         Peeking { head, tail: iter }
     }
 
-    fn peek(&mut self) -> Option<I::Item> {
+    fn peek(&self) -> Option<I::Item> {
         self.head
     }
 
     fn next(&mut self) -> Option<I::Item> {
-        match self.head {
-            None => None,
-            Some(next) => {
-                self.head = self.tail.next();
-                Some(next)
-            }
-        }
+        let next = self.head;
+        self.head = self.tail.next();
+        next
     }
 
     fn len(&self) -> usize {
@@ -170,7 +157,7 @@ where
 
 /// Core of SymmetricDifference and Union.
 /// More efficient than btree.map.MergeIter and has next()
-/// reporting which side(s) the element (if any) came from.
+/// reporting how many sets contained the element (if any).
 struct SetMergeIter<'a, T: 'a> {
     a: Peeking<Iter<'a, T>>,
     b: Peeking<Iter<'a, T>>,
@@ -191,25 +178,21 @@ impl<'a, T: Ord> SetMergeIter<'a, T> {
         }
     }
 
-    fn next(&mut self) -> (Option<&'a T>, Option<Ordering>) {
+    fn next(&mut self) -> (Option<&'a T>, usize) {
         let ord = match (self.a.peek(), self.b.peek()) {
-            (None, None) => None,
-            (_, None) => Some(Less),
-            (None, _) => Some(Greater),
-            (Some(a), Some(b)) => Some(a.cmp(b)),
+            (None, None) => return (None, 0),
+            (_, None) => Less,
+            (None, _) => Greater,
+            (Some(a), Some(b)) => a.cmp(b),
         };
-        (
-            match ord {
-                None => None,
-                Some(Less) => self.a.next(),
-                Some(Greater) => self.b.next(),
-                Some(Equal) => {
-                    self.b.next();
-                    self.a.next()
-                }
-            },
-            ord,
-        )
+        match ord {
+            Less => (self.a.next(), 1),
+            Greater => (self.b.next(), 1),
+            Equal => {
+                self.b.next();
+                (self.a.next(), 2)
+            }
+        }
     }
 }
 
@@ -1402,8 +1385,8 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            let (next, origin) = self.0.next();
-            if origin != Some(Equal) {
+            let (next, count) = self.0.next();
+            if count <= 1 {
                 return next;
             }
         }
@@ -1506,7 +1489,7 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        let (next, _origin) = self.0.next();
+        let (next, _count) = self.0.next();
         next
     }
 
