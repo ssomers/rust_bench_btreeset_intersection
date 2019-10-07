@@ -76,7 +76,7 @@ macro_rules! difference_bench {
             $bench_name,
             $sets,
             count,
-            std::collections::BTreeSet::difference
+            ::rust_bench_btreeset_intersection::set_now::difference
         );
     };
     ($bench_name: ident, $sets: expr, $func_name: ident) => {
@@ -95,7 +95,7 @@ macro_rules! is_subset_bench {
             $bench_name,
             $sets,
             clone,
-            std::collections::BTreeSet::is_subset
+            ::rust_bench_btreeset_intersection::set_now::is_subset
         );
     };
     ($bench_name: ident, $sets: expr, $func_name: ident) => {
@@ -114,7 +114,7 @@ macro_rules! intersection_bench {
             $bench_name,
             $sets,
             count,
-            std::collections::BTreeSet::intersection
+            ::rust_bench_btreeset_intersection::set_now::intersection
         );
     };
     ($bench_name: ident, $sets: expr, $func_name: ident) => {
@@ -133,7 +133,7 @@ macro_rules! symmdiff_bench {
             $bench_name,
             $sets,
             count,
-            std::collections::BTreeSet::symmetric_difference
+            ::rust_bench_btreeset_intersection::set_now::symmdiff
         );
     };
     ($bench_name: ident, $sets: expr, $func_name: ident) => {
@@ -148,7 +148,12 @@ macro_rules! symmdiff_bench {
 
 macro_rules! union_bench {
     ($bench_name: ident, $sets: expr) => {
-        set_bench!($bench_name, $sets, count, std::collections::BTreeSet::union);
+        set_bench!(
+            $bench_name,
+            $sets,
+            count,
+            ::rust_bench_btreeset_intersection::set_now::union
+        );
     };
     ($bench_name: ident, $sets: expr, $func_name: ident) => {
         set_bench!(
