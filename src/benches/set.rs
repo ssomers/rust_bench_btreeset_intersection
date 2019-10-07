@@ -273,8 +273,6 @@ mod union_neg_vs_pos {
     union_bench! {_100_pos_vs_10k_neg_future, [pos(100), neg(10_000)], union_future}
     union_bench! {_10k_neg_vs_100_pos,        [neg(10_000), pos(100)]}
     union_bench! {_10k_neg_vs_100_pos_future, [neg(10_000), pos(100)], union_future}
-    union_bench! {_10k_neg_vs_100_pos_2,      [neg(10_000), pos(100)]}
-    union_bench! {_10k_neg_vs_100_pos_future2,[neg(10_000), pos(100)], union_future}
     union_bench! {_10k_neg_vs_10k_pos,        [neg(10_000), pos(10_000)]}
     union_bench! {_10k_neg_vs_10k_pos_future, [neg(10_000), pos(10_000)], union_future}
     union_bench! {_10k_pos_vs_100_neg,        [pos(10_000), neg(100)]}

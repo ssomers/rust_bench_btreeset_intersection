@@ -3,4 +3,3 @@ rust:
   - nightly
 script:
   - cargo test
-  - cargo bench
