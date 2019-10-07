@@ -1397,14 +1397,11 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        loop {
-            let (a_next, b_next) = self.0.next();
-            match (a_next, b_next) {
-                (None, None) => return None,
-                (_, None) => return a_next,
-                (None, _) => return b_next,
-                (_, _) => (),
-            }
+        match self.0.next() {
+            (None, None) => None,
+            (Some(a), None) => Some(a),
+            (None, Some(b)) => Some(b),
+            (Some(_), Some(_)) => self.next(),
         }
     }
 
