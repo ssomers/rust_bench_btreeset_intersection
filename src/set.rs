@@ -160,8 +160,8 @@ where
 }
 
 /// Core of SymmetricDifference and Union.
-/// More efficient than btree.map.MergeIter and has next()
-/// reporting how many sets contained the element (if any).
+/// More efficient than btree.map.MergeIter, and crucially
+/// next() reports on both sides.
 struct MergeIter<I>
 where
     I: Iterator,
@@ -194,24 +194,17 @@ where
         }
     }
 
-    fn next(&mut self) -> Option<I::Item> {
-        self.next_counted().0
-    }
-
-    fn next_counted(&mut self) -> (Option<I::Item>, usize) {
+    fn next(&mut self) -> (Option<I::Item>, Option<I::Item>) {
         let ord = match (self.a.peek(), self.b.peek()) {
-            (None, None) => return (None, 0),
+            (None, None) => return (None, None),
             (_, None) => Less,
             (None, _) => Greater,
             (Some(a), Some(b)) => a.cmp(&b),
         };
         match ord {
-            Less => (self.a.next(), 1),
-            Greater => (self.b.next(), 1),
-            Equal => {
-                self.b.next();
-                (self.a.next(), 2)
-            }
+            Less => (self.a.next(), None),
+            Equal => (self.a.next(), self.b.next()),
+            Greater => (None, self.b.next()),
         }
     }
 }
@@ -1405,9 +1398,12 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            let (next, count) = self.0.next_counted();
-            if count <= 1 {
-                return next;
+            let (a_next, b_next) = self.0.next();
+            match (a_next, b_next) {
+                (None, None) => return None,
+                (_, None) => return a_next,
+                (None, _) => return b_next,
+                (_, _) => (),
             }
         }
     }
@@ -1509,7 +1505,8 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        self.0.next()
+        let (a_next, b_next) = self.0.next();
+        a_next.or(b_next)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
