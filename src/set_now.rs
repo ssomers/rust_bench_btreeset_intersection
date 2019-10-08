@@ -1475,7 +1475,7 @@ pub fn intersection<'a, T: Ord>(
     (selve as &dyn JustToIndentAsMuch<T>).intersection(other)
 }
 
-pub fn symmdiff<'a, T: Ord>(
+pub fn symmetric_difference<'a, T: Ord>(
     selve: &'a BTreeSet<T>,
     other: &'a BTreeSet<T>,
 ) -> SymmetricDifference<'a, T> {
