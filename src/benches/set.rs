@@ -40,7 +40,7 @@ fn pos(n: usize) -> BTreeSet<i32> {
     set
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 fn stagger(n1: usize, factor: usize) -> [BTreeSet<u32>; 2] {
     use std::cmp::min;
     let n2 = n1 * factor;
@@ -70,6 +70,7 @@ macro_rules! set_bench {
     };
 }
 
+#[cfg(feature = "diff")]
 macro_rules! difference_bench {
     ($bench_name: ident, $sets: expr) => {
         set_bench!(
@@ -89,6 +90,7 @@ macro_rules! difference_bench {
     };
 }
 
+#[cfg(feature = "subset")]
 macro_rules! is_subset_bench {
     ($bench_name: ident, $sets: expr) => {
         set_bench!(
@@ -108,6 +110,7 @@ macro_rules! is_subset_bench {
     };
 }
 
+#[cfg(feature = "intersect")]
 macro_rules! intersection_bench {
     ($bench_name: ident, $sets: expr) => {
         set_bench!(
@@ -127,6 +130,7 @@ macro_rules! intersection_bench {
     };
 }
 
+#[cfg(feature = "merge")]
 macro_rules! symmdiff_bench {
     ($bench_name: ident, $sets: expr) => {
         set_bench!(
@@ -146,6 +150,7 @@ macro_rules! symmdiff_bench {
     };
 }
 
+#[cfg(feature = "merge")]
 macro_rules! union_bench {
     ($bench_name: ident, $sets: expr) => {
         set_bench!(
@@ -165,6 +170,7 @@ macro_rules! union_bench {
     };
 }
 
+#[cfg(feature = "diff")]
 mod difference_neg_vs_pos {
     use super::{neg, pos};
     difference_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
@@ -185,6 +191,7 @@ mod difference_neg_vs_pos {
     difference_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], difference_future}
 }
 
+#[cfg(feature = "subset")]
 mod is_subset_neg_vs_pos {
     use super::{neg, pos};
     is_subset_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
@@ -205,6 +212,7 @@ mod is_subset_neg_vs_pos {
     is_subset_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], is_subset_future}
 }
 
+#[cfg(feature = "intersect")]
 mod intersect_neg_vs_pos {
     use super::{neg, pos};
     intersection_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
@@ -241,6 +249,7 @@ mod intersect_neg_vs_pos {
     intersection_bench! {_10k_pos_vs_10k_neg_swivel, [pos(10_000), neg(10_000)], intersection_swivel}
 }
 
+#[cfg(feature = "merge")]
 mod symmdiff_neg_vs_pos {
     use super::{neg, pos};
     symmdiff_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
@@ -261,6 +270,7 @@ mod symmdiff_neg_vs_pos {
     symmdiff_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], symmdiff_future}
 }
 
+#[cfg(feature = "merge")]
 mod union_neg_vs_pos {
     use super::{neg, pos};
     union_bench! {_100_neg_vs_100_pos,        [neg(100), pos(100)]}
@@ -281,6 +291,7 @@ mod union_neg_vs_pos {
     union_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], union_future}
 }
 
+#[cfg(feature = "diff")]
 mod difference_random_100 {
     use super::random;
     difference_bench! {vs_100,            random(100, 100)}
@@ -291,6 +302,7 @@ mod difference_random_100 {
     difference_bench! {vs_10k_future,     random(100, 10_000), difference_future}
 }
 
+#[cfg(feature = "subset")]
 mod is_subset_random_100 {
     use super::random;
     is_subset_bench! {vs_100,            random(100, 100)}
@@ -301,6 +313,7 @@ mod is_subset_random_100 {
     is_subset_bench! {vs_10k_future,     random(100, 10_000), is_subset_future}
 }
 
+#[cfg(feature = "intersect")]
 mod intersect_random_100 {
     use super::random;
     intersection_bench! {vs_100,            random(100, 100)}
@@ -323,6 +336,7 @@ mod intersect_random_100 {
     intersection_bench! {vs_10k_swivel,     random(100, 10_000), intersection_swivel}
 }
 
+#[cfg(feature = "merge")]
 mod symmdiff_random_100 {
     use super::random;
     symmdiff_bench! {vs_100,            random(100, 100)}
@@ -333,6 +347,7 @@ mod symmdiff_random_100 {
     symmdiff_bench! {vs_10k_future,     random(100, 10_000), symmdiff_future}
 }
 
+#[cfg(feature = "merge")]
 mod union_random_100 {
     use super::random;
     union_bench! {vs_100,            random(100, 100)}
@@ -343,6 +358,7 @@ mod union_random_100 {
     union_bench! {vs_10k_future,     random(100, 10_000), union_future}
 }
 
+#[cfg(feature = "diff")]
 mod difference_random_10k {
     use super::random;
     difference_bench! {vs_10k,            random(10_000, 10_000)}
@@ -353,6 +369,7 @@ mod difference_random_10k {
     difference_bench! {vs_160k_future,    random(10_000, 160_000), difference_future}
 }
 
+#[cfg(feature = "subset")]
 mod is_subset_random_10k {
     use super::random;
     is_subset_bench! {vs_10k,            random(10_000, 10_000)}
@@ -363,6 +380,7 @@ mod is_subset_random_10k {
     is_subset_bench! {vs_160k_future,    random(10_000, 160_000), is_subset_future}
 }
 
+#[cfg(feature = "intersect")]
 mod intersect_random_10k {
     use super::random;
     intersection_bench! {vs_10k,            random(10_000, 10_000)}
@@ -385,6 +403,7 @@ mod intersect_random_10k {
     intersection_bench! {vs_160k_swivel,    random(10_000, 160_000), intersection_swivel}
 }
 
+#[cfg(feature = "merge")]
 mod symmdiff_random_10k {
     use super::random;
     symmdiff_bench! {vs_10k,            random(10_000, 10_000)}
@@ -395,6 +414,7 @@ mod symmdiff_random_10k {
     symmdiff_bench! {vs_160k_future,    random(10_000, 160_000), symmdiff_future}
 }
 
+#[cfg(feature = "merge")]
 mod union_random_10k {
     use super::random;
     union_bench! {vs_10k,            random(10_000, 10_000)}
@@ -405,7 +425,7 @@ mod union_random_10k {
     union_bench! {vs_160k_future,    random(10_000, 160_000), union_future}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_001 {
     use super::stagger;
     intersection_bench! {vs_1,          stagger(1, 1)}
@@ -414,7 +434,7 @@ mod stagger_000_001 {
     intersection_bench! {vs_1_stitch,   stagger(1, 1), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_002 {
     use super::stagger;
     intersection_bench! {vs_2,          stagger(2, 1)}
@@ -423,7 +443,7 @@ mod stagger_000_002 {
     intersection_bench! {vs_2_stitch,   stagger(2, 1), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_004 {
     use super::stagger;
     intersection_bench! {vs_4,          stagger(4, 1)}
@@ -432,7 +452,7 @@ mod stagger_000_004 {
     intersection_bench! {vs_4_stitch,   stagger(4, 1), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_006 {
     use super::stagger;
     intersection_bench! {vs_6,          stagger(6, 1)}
@@ -441,7 +461,7 @@ mod stagger_000_006 {
     intersection_bench! {vs_6_stitch,   stagger(6, 1), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_008 {
     use super::stagger;
     intersection_bench! {vs_8,          stagger(8, 1)}
@@ -450,7 +470,7 @@ mod stagger_000_008 {
     intersection_bench! {vs_8_stitch,   stagger(8, 1), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_010 {
     use super::stagger;
     intersection_bench! {vs_x02,        stagger(10, 2)}
@@ -479,7 +499,7 @@ mod stagger_000_010 {
     intersection_bench! {vs_x16_stitch, stagger(10, 16), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_100 {
     use super::stagger;
     intersection_bench! {vs_x04,        stagger(100, 4)}
@@ -508,7 +528,7 @@ mod stagger_000_100 {
     intersection_bench! {vs_x16_stitch, stagger(100, 16), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_200 {
     use super::stagger;
     intersection_bench! {vs_x05,        stagger(200, 5)}
@@ -537,7 +557,7 @@ mod stagger_000_200 {
     intersection_bench! {vs_x16_stitch, stagger(200, 16), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_000_500 {
     use super::stagger;
     intersection_bench! {vs_x12,        stagger(500, 12)}
@@ -562,7 +582,7 @@ mod stagger_000_500 {
     intersection_bench! {vs_x16_stitch, stagger(500, 16), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_001_000 {
     use super::stagger;
     intersection_bench! {vs_x15,        stagger(1_000, 15)}
@@ -587,7 +607,7 @@ mod stagger_001_000 {
     intersection_bench! {vs_x19_stitch, stagger(1_000, 19), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_010_000 {
     use super::stagger;
     intersection_bench! {vs_x15,        stagger(10_000, 15)}
@@ -616,7 +636,7 @@ mod stagger_010_000 {
     intersection_bench! {vs_x20_stitch, stagger(10_000, 20), intersection_stitch}
 }
 
-#[cfg(feature = "stagger")]
+#[cfg(feature = "intersect")]
 mod stagger_100_000 {
     use super::stagger;
     intersection_bench! {vs_x15,        stagger(100_000, 15)}

@@ -8,7 +8,10 @@ edition = "2018"
 
 [features]
 include_100k = []
-stagger = []
+diff = []
+intersect = []
+merge = []
+subset = []
 
 [dev-dependencies]
 proptest = "0.9"
