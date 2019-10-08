@@ -190,7 +190,8 @@ enum DifferenceInner<'a, T: 'a> {
     Stitch {
         // iterate all of self and some of other, spotting matches along the way
         self_iter: Iter<'a, T>,
-        other_iter: Peekable<Iter<'a, T>>,
+        other_iter: Peekable<Range<'a, T>>,
+        other_set_len: usize,
     },
     Search {
         // iterate a small set, look up in the large set
@@ -209,6 +210,7 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
             DifferenceInner::Stitch {
                 self_iter,
                 other_iter,
+                ..
             } => f
                 .debug_tuple("Difference")
                 .field(&self_iter)
@@ -420,38 +422,24 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                 inner: DifferenceInner::Iterate(self.iter()),
             };
         };
-        let (other_min, other_max) = if let (Some(other_min), Some(other_max)) =
-            (other.iter().next(), other.iter().next_back())
-        {
-            (other_min, other_max)
-        } else {
+        let other_range = other.range(self_min..=self_max);
+        if other_range.clone().next().is_none() {
             return Difference {
                 inner: DifferenceInner::Iterate(self.iter()),
             };
         };
         Difference {
-            inner: match (self_min.cmp(other_max), self_max.cmp(other_min)) {
-                (Greater, _) | (_, Less) => DifferenceInner::Iterate(self.iter()),
-                (Equal, _) => {
-                    let mut self_iter = self.iter();
-                    self_iter.next();
-                    DifferenceInner::Iterate(self_iter)
-                }
-                (_, Equal) => {
-                    let mut self_iter = self.iter();
-                    self_iter.next_back();
-                    DifferenceInner::Iterate(self_iter)
-                }
-                _ if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF => {
-                    DifferenceInner::Search {
-                        self_iter: self.iter(),
-                        other_set: other,
-                    }
-                }
-                _ => DifferenceInner::Stitch {
+            inner: if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
+                DifferenceInner::Search {
                     self_iter: self.iter(),
-                    other_iter: other.iter().peekable(),
-                },
+                    other_set: other,
+                }
+            } else {
+                DifferenceInner::Stitch {
+                    self_iter: self.iter(),
+                    other_iter: other_range.peekable(),
+                    other_set_len: other.len(),
+                }
             },
         }
     }
@@ -1266,9 +1254,11 @@ impl<T> Clone for Difference<'_, T> {
                 DifferenceInner::Stitch {
                     self_iter,
                     other_iter,
+                    other_set_len,
                 } => DifferenceInner::Stitch {
                     self_iter: self_iter.clone(),
                     other_iter: other_iter.clone(),
+                    other_set_len: *other_set_len,
                 },
                 DifferenceInner::Search {
                     self_iter,
@@ -1293,6 +1283,7 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
             DifferenceInner::Stitch {
                 self_iter,
                 other_iter,
+                ..
             } => {
                 let mut self_next = self_iter.next()?;
                 loop {
@@ -1328,8 +1319,9 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
         let (self_len, other_len) = match &self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_iter,
-            } => (self_iter.len(), other_iter.len()),
+                other_set_len,
+                ..
+            } => (self_iter.len(), *other_set_len),
             DifferenceInner::Search {
                 self_iter,
                 other_set,

@@ -40,7 +40,21 @@ fn pos(n: usize) -> BTreeSet<i32> {
     set
 }
 
-#[cfg(feature = "intersect")]
+fn subrange(n1: usize, factor: usize) -> [BTreeSet<u32>; 2] {
+    let n2 = n1 * factor;
+    let mut sets = [BTreeSet::new(), BTreeSet::new()];
+    for elt in 0..n2 {
+        if ((n2 - n1) / 2..(n2 + n1) / 2).contains(&elt) {
+            sets[0].insert(elt as u32);
+        }
+        sets[1].insert(elt as u32);
+    }
+    assert_eq!(sets[0].len(), n1);
+    assert_eq!(sets[1].len(), n2);
+    sets
+}
+
+#[cfg(feature = "stagger")]
 fn stagger(n1: usize, factor: usize) -> [BTreeSet<u32>; 2] {
     use std::cmp::min;
     let n2 = n1 * factor;
@@ -104,6 +118,15 @@ mod difference_neg_vs_pos {
     future_bench!{_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], count, difference_future}
 }
 
+#[cfg(feature = "diff")]
+mod difference_subrange {
+    use super::subrange;
+    actual_bench!{_100_vs_100,        subrange(100, 1), count, difference}
+    future_bench!{_100_vs_100_future, subrange(100, 1), count, difference_future}
+    actual_bench!{_100_vs_10k,        subrange(100, 100), count, difference}
+    future_bench!{_100_vs_10k_future, subrange(100, 100), count, difference_future}
+}
+
 #[cfg(feature = "subset")]
 mod is_subset_neg_vs_pos {
     use super::{neg, pos};
@@ -123,6 +146,15 @@ mod is_subset_neg_vs_pos {
     future_bench!{_10k_pos_vs_100_neg_future, [pos(10_000), neg(100)], clone, is_subset_future}
     actual_bench!{_10k_pos_vs_10k_neg,        [pos(10_000), neg(10_000)], clone, is_subset}
     future_bench!{_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], clone, is_subset_future}
+}
+
+#[cfg(feature = "subset")]
+mod is_subset_subrange {
+    use super::subrange;
+    actual_bench!{_100_vs_100,        subrange(100, 1), clone, is_subset}
+    future_bench!{_100_vs_100_future, subrange(100, 1), clone, is_subset_future}
+    actual_bench!{_100_vs_10k,        subrange(100, 100), clone, is_subset}
+    future_bench!{_100_vs_10k_future, subrange(100, 100), clone, is_subset_future}
 }
 
 #[cfg(feature = "intersect")]
@@ -162,6 +194,19 @@ mod intersect_neg_vs_pos {
     future_bench!{_10k_pos_vs_10k_neg_swivel, [pos(10_000), neg(10_000)], count, intersection_swivel}
 }
 
+#[cfg(feature = "intersect")]
+mod intersection_subrange {
+    use super::subrange;
+    actual_bench!{_100_vs_100,        subrange(100, 1), count, intersection}
+    future_bench!{_100_vs_100_future, subrange(100, 1), count, intersection_future}
+    future_bench!{_100_vs_100_switch, subrange(100, 1), count, intersection_switch}
+    future_bench!{_100_vs_100_swivel, subrange(100, 1), count, intersection_swivel}
+    actual_bench!{_100_vs_10k,        subrange(100, 100), count, intersection}
+    future_bench!{_100_vs_10k_future, subrange(100, 100), count, intersection_future}
+    future_bench!{_100_vs_10k_switch, subrange(100, 100), count, intersection_switch}
+    future_bench!{_100_vs_10k_swivel, subrange(100, 100), count, intersection_swivel}
+}
+
 #[cfg(feature = "merge")]
 mod symmdiff_neg_vs_pos {
     use super::{neg, pos};
@@ -181,6 +226,15 @@ mod symmdiff_neg_vs_pos {
     future_bench!{_10k_pos_vs_100_neg_future, [pos(10_000), neg(100)], count, symmdiff_future}
     actual_bench!{_10k_pos_vs_10k_neg,        [pos(10_000), neg(10_000)], count, symmetric_difference}
     future_bench!{_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], count, symmdiff_future}
+}
+
+#[cfg(feature = "diff")]
+mod symdiff_subrange {
+    use super::subrange;
+    actual_bench!{_100_vs_100,        subrange(100, 1), count, symmetric_difference}
+    future_bench!{_100_vs_100_future, subrange(100, 1), count, symmdiff_future}
+    actual_bench!{_100_vs_10k,        subrange(100, 100), count, symmetric_difference}
+    future_bench!{_100_vs_10k_future, subrange(100, 100), count, symmdiff_future}
 }
 
 #[cfg(feature = "merge")]
@@ -338,7 +392,7 @@ mod union_random_10k {
     future_bench!{vs_160k_future,    random(10_000, 160_000), count, union_future}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_001 {
     use super::stagger;
     actual_bench!{vs_1,          stagger(1, 1), count, intersection}
@@ -347,7 +401,7 @@ mod stagger_000_001 {
     future_bench!{vs_1_stitch,   stagger(1, 1), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_002 {
     use super::stagger;
     actual_bench!{vs_2,          stagger(2, 1), count, intersection}
@@ -356,7 +410,7 @@ mod stagger_000_002 {
     future_bench!{vs_2_stitch,   stagger(2, 1), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_004 {
     use super::stagger;
     actual_bench!{vs_4,          stagger(4, 1), count, intersection}
@@ -365,7 +419,7 @@ mod stagger_000_004 {
     future_bench!{vs_4_stitch,   stagger(4, 1), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_006 {
     use super::stagger;
     actual_bench!{vs_6,          stagger(6, 1), count, intersection}
@@ -374,7 +428,7 @@ mod stagger_000_006 {
     future_bench!{vs_6_stitch,   stagger(6, 1), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_008 {
     use super::stagger;
     actual_bench!{vs_8,          stagger(8, 1), count, intersection}
@@ -383,7 +437,7 @@ mod stagger_000_008 {
     future_bench!{vs_8_stitch,   stagger(8, 1), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_010 {
     use super::stagger;
     actual_bench!{vs_x02,        stagger(10, 2), count, intersection}
@@ -412,7 +466,7 @@ mod stagger_000_010 {
     future_bench!{vs_x16_stitch, stagger(10, 16), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_100 {
     use super::stagger;
     actual_bench!{vs_x04,        stagger(100, 4), count, intersection}
@@ -441,7 +495,7 @@ mod stagger_000_100 {
     future_bench!{vs_x16_stitch, stagger(100, 16), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_200 {
     use super::stagger;
     actual_bench!{vs_x05,        stagger(200, 5), count, intersection}
@@ -470,7 +524,7 @@ mod stagger_000_200 {
     future_bench!{vs_x16_stitch, stagger(200, 16), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_000_500 {
     use super::stagger;
     actual_bench!{vs_x12,        stagger(500, 12), count, intersection}
@@ -495,7 +549,7 @@ mod stagger_000_500 {
     future_bench!{vs_x16_stitch, stagger(500, 16), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_001_000 {
     use super::stagger;
     actual_bench!{vs_x15,        stagger(1_000, 15), count, intersection}
@@ -520,7 +574,7 @@ mod stagger_001_000 {
     future_bench!{vs_x19_stitch, stagger(1_000, 19), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_010_000 {
     use super::stagger;
     actual_bench!{vs_x15,        stagger(10_000, 15), count, intersection}
@@ -549,7 +603,7 @@ mod stagger_010_000 {
     future_bench!{vs_x20_stitch, stagger(10_000, 20), count, intersection_stitch}
 }
 
-#[cfg(feature = "intersect")]
+#[cfg(feature = "stagger")]
 mod stagger_100_000 {
     use super::stagger;
     actual_bench!{vs_x15,        stagger(100_000, 15), count, intersection}

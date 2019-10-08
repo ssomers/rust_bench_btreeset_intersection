@@ -12,6 +12,7 @@ diff = []
 intersect = []
 merge = []
 subset = []
+stagger = []
 
 [dev-dependencies]
 proptest = "0.9"
