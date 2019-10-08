@@ -190,8 +190,7 @@ enum DifferenceInner<'a, T: 'a> {
     Stitch {
         // iterate all of self and some of other, spotting matches along the way
         self_iter: Iter<'a, T>,
-        other_iter: Peekable<Range<'a, T>>,
-        other_set_len: usize,
+        other_iter: Peekable<Iter<'a, T>>,
     },
     Search {
         // iterate a small set, look up in the large set
@@ -210,7 +209,6 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
             DifferenceInner::Stitch {
                 self_iter,
                 other_iter,
-                ..
             } => f
                 .debug_tuple("Difference")
                 .field(&self_iter)
@@ -422,24 +420,38 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                 inner: DifferenceInner::Iterate(self.iter()),
             };
         };
-        let other_range = other.range(self_min..=self_max);
-        if other_range.clone().next().is_none() {
+        let (other_min, other_max) = if let (Some(other_min), Some(other_max)) =
+            (other.iter().next(), other.iter().next_back())
+        {
+            (other_min, other_max)
+        } else {
             return Difference {
                 inner: DifferenceInner::Iterate(self.iter()),
             };
         };
         Difference {
-            inner: if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-                DifferenceInner::Search {
-                    self_iter: self.iter(),
-                    other_set: other,
+            inner: match (self_min.cmp(other_max), self_max.cmp(other_min)) {
+                (Greater, _) | (_, Less) => DifferenceInner::Iterate(self.iter()),
+                (Equal, _) => {
+                    let mut self_iter = self.iter();
+                    self_iter.next();
+                    DifferenceInner::Iterate(self_iter)
                 }
-            } else {
-                DifferenceInner::Stitch {
-                    self_iter: self.iter(),
-                    other_iter: other_range.peekable(),
-                    other_set_len: other.len(),
+                (_, Equal) => {
+                    let mut self_iter = self.iter();
+                    self_iter.next_back();
+                    DifferenceInner::Iterate(self_iter)
                 }
+                _ if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF => {
+                    DifferenceInner::Search {
+                        self_iter: self.iter(),
+                        other_set: other,
+                    }
+                }
+                _ => DifferenceInner::Stitch {
+                    self_iter: self.iter(),
+                    other_iter: other.iter().peekable(),
+                },
             },
         }
     }
@@ -687,23 +699,43 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
         } else {
             return true; // self is empty
         };
-        let mut other_range = other.range(self_min..=self_max);
-        if other_range.clone().next().is_none() {
-            return false; // other does not contain anything in self's non-empty range
+        let (other_min, other_max) = if let (Some(other_min), Some(other_max)) =
+            (other.iter().next(), other.iter().next_back())
+        {
+            (other_min, other_max)
+        } else {
+            return false; // other is empty
         };
-        if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
+        let mut self_iter = self.iter();
+        match self_min.cmp(other_min) {
+            Less => return false,
+            Equal => {
+                self_iter.next();
+            }
+            Greater => (),
+        }
+        match self_max.cmp(other_max) {
+            Greater => return false,
+            Equal => {
+                self_iter.next_back();
+            }
+            Less => (),
+        }
+        if self_iter.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
             // Big difference in number of elements.
-            for next in self {
+            for next in self_iter {
                 if !other.contains(next) {
                     return false;
                 }
             }
         } else {
             // Self is not much smaller than other set.
-            let mut self_iter = self.iter();
+            let mut other_iter = other.iter();
+            other_iter.next();
+            other_iter.next_back();
             let mut self_next = self_iter.next();
             while let Some(self1) = self_next {
-                match other_range.next().map_or(Less, |other1| self1.cmp(other1)) {
+                match other_iter.next().map_or(Less, |other1| self1.cmp(other1)) {
                     Less => return false,
                     Equal => self_next = self_iter.next(),
                     Greater => (),
@@ -1195,13 +1227,6 @@ impl<T> ExactSizeIterator for IntoIter<T> {
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T> FusedIterator for IntoIter<T> {}
 
-impl<T> Range<'_, T> {
-    /// Returns true if the iterator is empty.
-    fn is_empty(&self) -> bool {
-        self.iter.is_empty()
-    }
-}
-
 #[stable(feature = "btree_range", since = "1.17.0")]
 impl<T> Clone for Range<'_, T> {
     fn clone(&self) -> Self {
@@ -1241,11 +1266,9 @@ impl<T> Clone for Difference<'_, T> {
                 DifferenceInner::Stitch {
                     self_iter,
                     other_iter,
-                    other_set_len,
                 } => DifferenceInner::Stitch {
                     self_iter: self_iter.clone(),
                     other_iter: other_iter.clone(),
-                    other_set_len: *other_set_len,
                 },
                 DifferenceInner::Search {
                     self_iter,
@@ -1270,7 +1293,6 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
             DifferenceInner::Stitch {
                 self_iter,
                 other_iter,
-                ..
             } => {
                 let mut self_next = self_iter.next()?;
                 loop {
@@ -1306,9 +1328,8 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
         let (self_len, other_len) = match &self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_set_len,
-                ..
-            } => (self_iter.len(), *other_set_len),
+                other_iter,
+            } => (self_iter.len(), other_iter.len()),
             DifferenceInner::Search {
                 self_iter,
                 other_set,
@@ -1340,8 +1361,8 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
         loop {
             match self.0.next() {
                 (None, None) => return None,
-                (Some(a), None) => return Some(a),
-                (None, Some(b)) => return Some(b),
+                (Some(item), None) => return Some(item),
+                (None, Some(item)) => return Some(item),
                 (Some(_), Some(_)) => (),
             }
         }
