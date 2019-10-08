@@ -687,43 +687,23 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
         } else {
             return true; // self is empty
         };
-        let (other_min, other_max) = if let (Some(other_min), Some(other_max)) =
-            (other.iter().next(), other.iter().next_back())
-        {
-            (other_min, other_max)
-        } else {
-            return false; // other is empty
+        let mut other_range = other.range(self_min..=self_max);
+        if other_range.clone().next().is_none() {
+            return false; // other does not contain anything in self's non-empty range
         };
-        let mut self_iter = self.iter();
-        match self_min.cmp(other_min) {
-            Less => return false,
-            Equal => {
-                self_iter.next();
-            }
-            Greater => (),
-        }
-        match self_max.cmp(other_max) {
-            Greater => return false,
-            Equal => {
-                self_iter.next_back();
-            }
-            Less => (),
-        }
-        if self_iter.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
+        if self.len() <= other.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
             // Big difference in number of elements.
-            for next in self_iter {
+            for next in self {
                 if !other.contains(next) {
                     return false;
                 }
             }
         } else {
             // Self is not much smaller than other set.
-            let mut other_iter = other.iter();
-            other_iter.next();
-            other_iter.next_back();
+            let mut self_iter = self.iter();
             let mut self_next = self_iter.next();
             while let Some(self1) = self_next {
-                match other_iter.next().map_or(Less, |other1| self1.cmp(other1)) {
+                match other_range.next().map_or(Less, |other1| self1.cmp(other1)) {
                     Less => return false,
                     Equal => self_next = self_iter.next(),
                     Greater => (),
@@ -1214,6 +1194,13 @@ impl<T> ExactSizeIterator for IntoIter<T> {
 
 #[stable(feature = "fused", since = "1.26.0")]
 impl<T> FusedIterator for IntoIter<T> {}
+
+impl<T> Range<'_, T> {
+    /// Returns true if the iterator is empty.
+    fn is_empty(&self) -> bool {
+        self.iter.is_empty()
+    }
+}
 
 #[stable(feature = "btree_range", since = "1.17.0")]
 impl<T> Clone for Range<'_, T> {
