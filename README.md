@@ -13,8 +13,8 @@ Requires a build that supports benchmarks, like nightly.
     test intersect_random_100::vs_100_swivel  ... bench:       1,489 ns/iter (+/- 14)
 
 Each of these benches measures the time spent intersecting two different sets with 100 pseudo-random elements (with the same seed each time), in order:
-- on top: implementation of intersection in the liballoc of the (nightly) rustc build used
-- future: proposed implementation, that attempts to choose wisely between one of the strategies below (assuming that the local build has the same optimizations as the nightly build)
+- on top: copy of intersection in the latest liballoc
+- future: proposed implementation, that attempts to choose wisely between one of the strategies below
 - search: iterating over the smallest of the sets, each time searching for a match in the largest set
 - stitch: same strategy as the original liballoc, but implemented more efficiently without Peekable
 - switch: stitch that switches to search when it (hopefully) becomes faster
