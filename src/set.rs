@@ -142,7 +142,7 @@ where
 }
 impl<I> MergeIter<I>
 where
-    I: FusedIterator,
+    I: ExactSizeIterator + FusedIterator,
     I::Item: Copy + Ord,
 {
     fn new(a: I, b: I) -> Self {
@@ -170,6 +170,14 @@ where
             Greater => Some(MergeIterPeeked::A(a_next.take())),
         };
         (a_next, b_next)
+    }
+
+    fn lens(&self) -> (usize, usize) {
+        match self.peeked {
+            Some(MergeIterPeeked::A(Some(_))) => (1 + self.a.len(), self.b.len()),
+            Some(MergeIterPeeked::B(Some(_))) => (self.a.len(), self.b.len() + 1),
+            _ => (self.a.len(), self.b.len()),
+        }
     }
 }
 
@@ -1369,7 +1377,8 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, Some(self.0.a.len() + self.0.b.len()))
+        let (a_len, b_len) = self.0.lens();
+        (0, Some(a_len + b_len))
     }
 }
 
@@ -1470,8 +1479,7 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let a_len = self.0.a.len();
-        let b_len = self.0.b.len();
+        let (a_len, b_len) = self.0.lens();
         (max(a_len, b_len), Some(a_len + b_len))
     }
 }
