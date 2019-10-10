@@ -237,8 +237,8 @@ mod symmdiff_neg_vs_pos {
     future_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], count, symmdiff_future}
 }
 
-#[cfg(feature = "diff")]
-mod symdiff_subsets {
+#[cfg(feature = "merge")]
+mod symmdiff_subsets {
     use super::subsets;
     actual_bench! {_10_vs_100,         subsets(10, 10), count, symmetric_difference}
     future_bench! {_10_vs_100_future,  subsets(10, 10), count, symmdiff_future}
@@ -267,7 +267,7 @@ mod union_neg_vs_pos {
     future_bench! {_10k_pos_vs_10k_neg_future, [pos(10_000), neg(10_000)], count, union_future}
 }
 
-#[cfg(feature = "diff")]
+#[cfg(feature = "merge")]
 mod union_subsets {
     use super::subsets;
     actual_bench! {_10_vs_100,         subsets(10, 10), count, union}
