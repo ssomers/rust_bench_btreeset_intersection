@@ -222,10 +222,9 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
                 .field(&self_iter)
                 .field(&other_iter)
                 .finish(),
-            DifferenceInner::Search {
-                self_iter,
-                other_set: _,
-            } => f.debug_tuple("Difference").field(&self_iter).finish(),
+            DifferenceInner::Search { self_iter, .. } => {
+                f.debug_tuple("Difference").field(&self_iter).finish()
+            }
             DifferenceInner::Iterate(iter) => f.debug_tuple("Difference").field(&iter).finish(),
         }
     }
@@ -289,18 +288,12 @@ enum IntersectionInner<'a, T: 'a> {
 impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.inner {
-            IntersectionInner::Stitch {
-                a,
-                b,
-            } => f
-                .debug_tuple("Intersection")
-                .field(&a)
-                .field(&b)
-                .finish(),
-            IntersectionInner::Search {
-                small_iter,
-                large_set: _,
-            } => f.debug_tuple("Intersection").field(&small_iter).finish(),
+            IntersectionInner::Stitch { a, b } => {
+                f.debug_tuple("Intersection").field(&a).field(&b).finish()
+            }
+            IntersectionInner::Search { small_iter, .. } => {
+                f.debug_tuple("Intersection").field(&small_iter).finish()
+            }
             IntersectionInner::Answer(answer) => {
                 f.debug_tuple("Intersection").field(&answer).finish()
             }
@@ -1406,7 +1399,7 @@ impl<T> Clone for Intersection<'_, T> {
                     small_iter: small_iter.clone(),
                     large_set,
                 },
-                IntersectionInner::Answer(answer) => IntersectionInner::Answer(answer.clone()),
+                IntersectionInner::Answer(answer) => IntersectionInner::Answer(*answer),
             },
         }
     }
@@ -1529,24 +1522,28 @@ impl<'a, T: Ord> Iterator for IntersectionSwitch<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
+        enum Search<'a, T> {
+            IsNotWorthIt,
+            Found(Option<&'a T>),
+        }
         fn search_remainder<'b, S: Ord>(
             small_iter: &mut Iter<'b, S>,
             large_iter: &Iter<'b, S>,
             large_set: &BTreeSet<S>,
-        ) -> Option<Option<&'b S>> {
+        ) -> Search<'b, S> {
             if small_iter.len() > large_iter.len() / ITER_PERFORMANCE_TIPPING_SIZE_DIFF {
-                None
+                Search::IsNotWorthIt
             } else {
                 // At this point, large_iter's position may be one iteration
                 // beyond what you'd assume, and remains stuck, but it won't
                 // be used anymore. large_iter's length remains large, so we
                 // will keep coming back here, and it won't spoil size_hint.
-                while let Some(next) = small_iter.next() {
+                for next in small_iter {
                     if large_set.contains(&next) {
-                        return Some(Some(next));
+                        return Search::Found(Some(next));
                     }
                 }
-                Some(None)
+                Search::Found(None)
             }
         }
 
@@ -1557,10 +1554,10 @@ impl<'a, T: Ord> Iterator for IntersectionSwitch<'a, T> {
                 a_iter,
                 b_iter,
             } => {
-                if let Some(result) = search_remainder(a_iter, b_iter, b_set) {
+                if let Search::Found(result) = search_remainder(a_iter, b_iter, b_set) {
                     return result;
                 }
-                if let Some(result) = search_remainder(b_iter, a_iter, a_set) {
+                if let Search::Found(result) = search_remainder(b_iter, a_iter, a_set) {
                     return result;
                 }
                 let mut a_next = a_iter.next()?;
@@ -1568,13 +1565,13 @@ impl<'a, T: Ord> Iterator for IntersectionSwitch<'a, T> {
                 loop {
                     match a_next.cmp(b_next) {
                         Less => {
-                            if let Some(result) = search_remainder(a_iter, b_iter, b_set) {
+                            if let Search::Found(result) = search_remainder(a_iter, b_iter, b_set) {
                                 return result;
                             }
                             a_next = a_iter.next()?
                         }
                         Greater => {
-                            if let Some(result) = search_remainder(b_iter, a_iter, a_set) {
+                            if let Search::Found(result) = search_remainder(b_iter, a_iter, a_set) {
                                 return result;
                             }
                             b_next = b_iter.next()?
@@ -1608,14 +1605,12 @@ impl<T> Clone for IntersectionSwitch<'_, T> {
                     a_iter,
                     b_iter,
                 } => IntersectionSwitchInner::Stitch {
-                    a_set: a_set,
-                    b_set: b_set,
+                    a_set,
+                    b_set,
                     a_iter: a_iter.clone(),
                     b_iter: b_iter.clone(),
                 },
-                IntersectionSwitchInner::Answer(answer) => {
-                    IntersectionSwitchInner::Answer(answer.clone())
-                }
+                IntersectionSwitchInner::Answer(answer) => IntersectionSwitchInner::Answer(*answer),
             },
         }
     }
