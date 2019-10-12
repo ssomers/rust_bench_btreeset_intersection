@@ -2,7 +2,7 @@
 use core::cmp::Ordering::{Equal, Greater, Less};
 use core::cmp::{max, min};
 use core::fmt::{self};
-use core::iter::{FusedIterator, Peekable};
+use core::iter::FusedIterator;
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -14,7 +14,7 @@ use core::borrow::Borrow;
 use core::cmp::Ordering::{Less, Greater, Equal};
 use core::cmp::{max, min};
 use core::fmt::{self, Debug};
-use core::iter::{Peekable, FromIterator, FusedIterator};
+use core::iter::{FromIterator, FusedIterator};
 use core::ops::{BitOr, BitAnd, BitXor, Sub, RangeBounds};
 
 use crate::collections::btree_map::{self, BTreeMap, Keys};
@@ -198,7 +198,8 @@ enum DifferenceInner<'a, T: 'a> {
     Stitch {
         // iterate all of self and some of other, spotting matches along the way
         self_iter: Iter<'a, T>,
-        other_iter: Peekable<Iter<'a, T>>,
+        other_head: Option<&'a T>,
+        other_tail: Iter<'a, T>,
     },
     Search {
         // iterate a small set, look up in the large set
@@ -216,11 +217,13 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
         match &self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_iter,
+                other_head,
+                other_tail,
             } => f
                 .debug_tuple("Difference")
                 .field(&self_iter)
-                .field(&other_iter)
+                .field(&other_head)
+                .field(&other_tail)
                 .finish(),
             DifferenceInner::Search { self_iter, .. } => {
                 f.debug_tuple("Difference").field(&self_iter).finish()
@@ -449,10 +452,14 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                         other_set: other,
                     }
                 }
-                _ => DifferenceInner::Stitch {
-                    self_iter: self.iter(),
-                    other_iter: other.iter().peekable(),
-                },
+                _ => {
+                    let mut other_iter = other.iter();
+                    DifferenceInner::Stitch {
+                        self_iter: self.iter(),
+                        other_head: other_iter.next(),
+                        other_tail: other_iter,
+                    }
+                }
             },
         }
     }
@@ -1266,10 +1273,12 @@ impl<T> Clone for Difference<'_, T> {
             inner: match &self.inner {
                 DifferenceInner::Stitch {
                     self_iter,
-                    other_iter,
+                    other_head,
+                    other_tail,
                 } => DifferenceInner::Stitch {
                     self_iter: self_iter.clone(),
-                    other_iter: other_iter.clone(),
+                    other_head: *other_head,
+                    other_tail: other_tail.clone(),
                 },
                 DifferenceInner::Search {
                     self_iter,
@@ -1293,21 +1302,19 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
         match &mut self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_iter,
+                other_head,
+                other_tail,
             } => {
                 let mut self_next = self_iter.next()?;
                 loop {
-                    match other_iter
-                        .peek()
-                        .map_or(Less, |other_next| self_next.cmp(other_next))
-                    {
+                    match other_head.map_or(Less, |other_next| self_next.cmp(other_next)) {
                         Less => return Some(self_next),
                         Equal => {
                             self_next = self_iter.next()?;
-                            other_iter.next();
+                            *other_head = other_tail.next();
                         }
                         Greater => {
-                            other_iter.next();
+                            *other_head = other_tail.next();
                         }
                     }
                 }
@@ -1329,8 +1336,14 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
         let (self_len, other_len) = match &self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_iter,
-            } => (self_iter.len(), other_iter.len()),
+                other_head: None,
+                ..
+            } => (self_iter.len(), 0),
+            DifferenceInner::Stitch {
+                self_iter,
+                other_head: Some(_),
+                other_tail,
+            } => (self_iter.len(), 1 + other_tail.len()),
             DifferenceInner::Search {
                 self_iter,
                 other_set,
