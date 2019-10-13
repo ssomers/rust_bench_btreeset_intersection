@@ -2,7 +2,6 @@
 use core::cmp::Ordering::{Equal, Greater, Less};
 use core::cmp::{max, min};
 use core::fmt::{self};
-use core::iter::FusedIterator;
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -128,56 +127,55 @@ where
     I: Iterator,
     I::Item: Copy,
 {
-    a: I,
-    b: I,
-    peeked: Option<MergeIterPeeked<I>>,
-}
-#[derive(Copy, Clone, Debug)]
-enum MergeIterPeeked<I>
-where
-    I: Iterator,
-{
-    A(Option<I::Item>),
-    B(Option<I::Item>),
+    a_head: Option<I::Item>,
+    a_tail: I,
+    b_head: Option<I::Item>,
+    b_tail: I,
 }
 impl<I> MergeIterInner<I>
 where
-    I: ExactSizeIterator + FusedIterator,
+    I: ExactSizeIterator,
     I::Item: Copy + Ord,
 {
-    fn new(a: I, b: I) -> Self {
-        MergeIterInner { a, b, peeked: None }
+    fn new(mut a: I, mut b: I) -> Self {
+        MergeIterInner {
+            a_head: a.next(),
+            a_tail: a,
+            b_head: b.next(),
+            b_tail: b,
+        }
     }
 
     fn nexts(&mut self) -> (Option<I::Item>, Option<I::Item>) {
-        let mut a_next = match self.peeked {
-            Some(MergeIterPeeked::A(next)) => next,
-            _ => self.a.next(),
-        };
-        let mut b_next = match self.peeked {
-            Some(MergeIterPeeked::B(next)) => next,
-            _ => self.b.next(),
-        };
-        let ord = match (a_next, b_next) {
-            (None, None) => Equal,
-            (_, None) => Less,
-            (None, _) => Greater,
+        let ord = match (self.a_head, self.b_head) {
+            (None, None) => return (None, None),
+            (Some(_), None) => Less,
+            (None, Some(_)) => Greater,
             (Some(a1), Some(b1)) => a1.cmp(&b1),
         };
-        self.peeked = match ord {
-            Less => Some(MergeIterPeeked::B(b_next.take())),
-            Equal => None,
-            Greater => Some(MergeIterPeeked::A(a_next.take())),
-        };
-        (a_next, b_next)
+        let (a_next, b_next) = (self.a_head, self.b_head);
+        match ord {
+            Less => {
+                self.a_head = self.a_tail.next();
+                (a_next, None)
+            }
+            Equal => {
+                self.a_head = self.a_tail.next();
+                self.b_head = self.b_tail.next();
+                (a_next, b_next)
+            }
+            Greater => {
+                self.b_head = self.b_tail.next();
+                (None, b_next)
+            }
+        }
     }
 
     fn lens(&self) -> (usize, usize) {
-        match self.peeked {
-            Some(MergeIterPeeked::A(Some(_))) => (1 + self.a.len(), self.b.len()),
-            Some(MergeIterPeeked::B(Some(_))) => (self.a.len(), self.b.len() + 1),
-            _ => (self.a.len(), self.b.len()),
-        }
+        (
+            self.a_head.iter().count() + self.a_tail.len(),
+            self.b_head.iter().count() + self.b_tail.len(),
+        )
     }
 }
 
@@ -251,9 +249,10 @@ pub struct SymmetricDifference<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("SymmetricDifference")
-            .field(&self.0.a)
-            .field(&self.0.b)
-            .field(&self.0.peeked)
+            .field(&self.0.a_head)
+            .field(&self.0.a_tail)
+            .field(&self.0.b_head)
+            .field(&self.0.b_tail)
             .finish()
     }
 }
@@ -322,9 +321,10 @@ pub struct Union<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Union")
-            .field(&self.0.a)
-            .field(&self.0.b)
-            .field(&self.0.peeked)
+            .field(&self.0.a_head)
+            .field(&self.0.a_tail)
+            .field(&self.0.b_head)
+            .field(&self.0.b_tail)
             .finish()
     }
 }
