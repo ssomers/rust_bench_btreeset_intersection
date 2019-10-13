@@ -118,8 +118,43 @@ pub struct Range<'a, T: 'a> {
 }
 */
 
+/// Core of an aLternative to Peekable, that is more efficient
+/// if copying items is cheap and if peeking early does no harm.
+/// It always has one item read ahead.
+#[derive(Clone)]
+struct Peeking<I>
+where
+    I: Iterator,
+    I::Item: Copy,
+{
+    head: Option<I::Item>,
+    tail: I,
+}
+impl<I> Peeking<I>
+where
+    I: ExactSizeIterator,
+    I::Item: Copy,
+{
+    fn new(mut iter: I) -> Self {
+        let head = iter.next();
+        Peeking { head, tail: iter }
+    }
+    fn next(&mut self) -> Option<I::Item> {
+        match self.head {
+            None => None,
+            Some(item) => {
+                self.head = self.tail.next();
+                Some(item)
+            }
+        }
+    }
+    fn len(&self) -> usize {
+        self.head.map_or(0, |_| 1 + self.tail.len())
+    }
+}
+
 /// Core of SymmetricDifference and Union.
-/// More efficient than btree.map.MergeIter,
+/// More efficient than btree.map.MergeIter thanks to Peeking,
 /// and crucially for SymmetricDifference, next() reports on both sides.
 #[derive(Clone)]
 struct MergeIterInner<I>
@@ -127,55 +162,33 @@ where
     I: Iterator,
     I::Item: Copy,
 {
-    a_head: Option<I::Item>,
-    a_tail: I,
-    b_head: Option<I::Item>,
-    b_tail: I,
+    a: Peeking<I>,
+    b: Peeking<I>,
 }
 impl<I> MergeIterInner<I>
 where
     I: ExactSizeIterator,
     I::Item: Copy + Ord,
 {
-    fn new(mut a: I, mut b: I) -> Self {
+    fn new(a: I, b: I) -> Self {
         MergeIterInner {
-            a_head: a.next(),
-            a_tail: a,
-            b_head: b.next(),
-            b_tail: b,
+            a: Peeking::new(a),
+            b: Peeking::new(b),
         }
     }
 
-    fn nexts(&mut self) -> (Option<I::Item>, Option<I::Item>) {
-        let ord = match (self.a_head, self.b_head) {
+    fn next(&mut self) -> (Option<I::Item>, Option<I::Item>) {
+        let ord = match (self.a.head, self.b.head) {
             (None, None) => return (None, None),
             (Some(_), None) => Less,
             (None, Some(_)) => Greater,
             (Some(a1), Some(b1)) => a1.cmp(&b1),
         };
-        let (a_next, b_next) = (self.a_head, self.b_head);
         match ord {
-            Less => {
-                self.a_head = self.a_tail.next();
-                (a_next, None)
-            }
-            Equal => {
-                self.a_head = self.a_tail.next();
-                self.b_head = self.b_tail.next();
-                (a_next, b_next)
-            }
-            Greater => {
-                self.b_head = self.b_tail.next();
-                (None, b_next)
-            }
+            Less => (self.a.next(), None),
+            Equal => (self.a.next(), self.b.next()),
+            Greater => (None, self.b.next()),
         }
-    }
-
-    fn lens(&self) -> (usize, usize) {
-        (
-            self.a_head.iter().count() + self.a_tail.len(),
-            self.b_head.iter().count() + self.b_tail.len(),
-        )
     }
 }
 
@@ -196,8 +209,7 @@ enum DifferenceInner<'a, T: 'a> {
     Stitch {
         // iterate all of self and some of other, spotting matches along the way
         self_iter: Iter<'a, T>,
-        other_head: Option<&'a T>,
-        other_tail: Iter<'a, T>,
+        other_iter: Peeking<Iter<'a, T>>,
     },
     Search {
         // iterate a small set, look up in the large set
@@ -215,13 +227,12 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
         match &self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_head,
-                other_tail,
+                other_iter,
             } => f
                 .debug_tuple("Difference")
                 .field(&self_iter)
-                .field(&other_head)
-                .field(&other_tail)
+                .field(&other_iter.head)
+                .field(&other_iter.tail)
                 .finish(),
             DifferenceInner::Search { self_iter, .. } => {
                 f.debug_tuple("Difference").field(&self_iter).finish()
@@ -249,10 +260,10 @@ pub struct SymmetricDifference<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("SymmetricDifference")
-            .field(&self.0.a_head)
-            .field(&self.0.a_tail)
-            .field(&self.0.b_head)
-            .field(&self.0.b_tail)
+            .field(&self.0.a.head)
+            .field(&self.0.a.tail)
+            .field(&self.0.b.head)
+            .field(&self.0.b.tail)
             .finish()
     }
 }
@@ -321,10 +332,10 @@ pub struct Union<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Union")
-            .field(&self.0.a_head)
-            .field(&self.0.a_tail)
-            .field(&self.0.b_head)
-            .field(&self.0.b_tail)
+            .field(&self.0.a.head)
+            .field(&self.0.a.tail)
+            .field(&self.0.b.head)
+            .field(&self.0.b.tail)
             .finish()
     }
 }
@@ -452,14 +463,10 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                         other_set: other,
                     }
                 }
-                _ => {
-                    let mut other_iter = other.iter();
-                    DifferenceInner::Stitch {
-                        self_iter: self.iter(),
-                        other_head: other_iter.next(),
-                        other_tail: other_iter,
-                    }
-                }
+                _ => DifferenceInner::Stitch {
+                    self_iter: self.iter(),
+                    other_iter: Peeking::new(other.iter()),
+                },
             },
         }
     }
@@ -1273,12 +1280,10 @@ impl<T> Clone for Difference<'_, T> {
             inner: match &self.inner {
                 DifferenceInner::Stitch {
                     self_iter,
-                    other_head,
-                    other_tail,
+                    other_iter,
                 } => DifferenceInner::Stitch {
                     self_iter: self_iter.clone(),
-                    other_head: *other_head,
-                    other_tail: other_tail.clone(),
+                    other_iter: other_iter.clone(),
                 },
                 DifferenceInner::Search {
                     self_iter,
@@ -1302,19 +1307,21 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
         match &mut self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_head,
-                other_tail,
+                other_iter,
             } => {
                 let mut self_next = self_iter.next()?;
                 loop {
-                    match other_head.map_or(Less, |other_next| self_next.cmp(other_next)) {
+                    match other_iter
+                        .head
+                        .map_or(Less, |other_next| self_next.cmp(other_next))
+                    {
                         Less => return Some(self_next),
                         Equal => {
                             self_next = self_iter.next()?;
-                            *other_head = other_tail.next();
+                            other_iter.next();
                         }
                         Greater => {
-                            *other_head = other_tail.next();
+                            other_iter.next();
                         }
                     }
                 }
@@ -1336,14 +1343,8 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
         let (self_len, other_len) = match &self.inner {
             DifferenceInner::Stitch {
                 self_iter,
-                other_head: None,
-                ..
-            } => (self_iter.len(), 0),
-            DifferenceInner::Stitch {
-                self_iter,
-                other_head: Some(_),
-                other_tail,
-            } => (self_iter.len(), 1 + other_tail.len()),
+                other_iter,
+            } => (self_iter.len(), other_iter.len()),
             DifferenceInner::Search {
                 self_iter,
                 other_set,
@@ -1373,7 +1374,7 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            match self.0.nexts() {
+            match self.0.next() {
                 (None, None) => return None,
                 (Some(item), None) => return Some(item),
                 (None, Some(item)) => return Some(item),
@@ -1383,8 +1384,7 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (a_len, b_len) = self.0.lens();
-        (0, Some(a_len + b_len))
+        (0, Some(self.0.a.len() + self.0.b.len()))
     }
 }
 
@@ -1480,12 +1480,12 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        let (a_next, b_next) = self.0.nexts();
+        let (a_next, b_next) = self.0.next();
         a_next.or(b_next)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (a_len, b_len) = self.0.lens();
+        let (a_len, b_len) = (self.0.a.len(), self.0.b.len());
         (max(a_len, b_len), Some(a_len + b_len))
     }
 }
