@@ -123,7 +123,7 @@ pub struct Range<'a, T: 'a> {
 /// More efficient than btree.map.MergeIter,
 /// and crucially for SymmetricDifference, next() reports on both sides.
 #[derive(Clone)]
-struct MergeIter<I>
+struct MergeIterInner<I>
 where
     I: Iterator,
     I::Item: Copy,
@@ -140,16 +140,16 @@ where
     A(Option<I::Item>),
     B(Option<I::Item>),
 }
-impl<I> MergeIter<I>
+impl<I> MergeIterInner<I>
 where
     I: ExactSizeIterator + FusedIterator,
     I::Item: Copy + Ord,
 {
     fn new(a: I, b: I) -> Self {
-        MergeIter { a, b, peeked: None }
+        MergeIterInner { a, b, peeked: None }
     }
 
-    fn next(&mut self) -> (Option<I::Item>, Option<I::Item>) {
+    fn nexts(&mut self) -> (Option<I::Item>, Option<I::Item>) {
         let mut a_next = match self.peeked {
             Some(MergeIterPeeked::A(next)) => next,
             _ => self.a.next(),
@@ -243,7 +243,7 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
 /*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
-pub struct SymmetricDifference<'a, T: 'a>(MergeIter<Iter<'a, T>>);
+pub struct SymmetricDifference<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 
 /*
 #[stable(feature = "collection_debug", since = "1.17.0")]
@@ -314,7 +314,7 @@ impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
 /*
 #[stable(feature = "rust1", since = "1.0.0")]
 */
-pub struct Union<'a, T: 'a>(MergeIter<Iter<'a, T>>);
+pub struct Union<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 
 /*
 #[stable(feature = "collection_debug", since = "1.17.0")]
@@ -491,7 +491,7 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
                                     -> SymmetricDifference<'a, T> {
     */
     fn symmetric_difference<'a>(&'a self, other: &'a BTreeSet<T>) -> SymmetricDifference<'a, T> {
-        SymmetricDifference(MergeIter::new(self.iter(), other.iter()))
+        SymmetricDifference(MergeIterInner::new(self.iter(), other.iter()))
     }
 
     /*
@@ -585,7 +585,7 @@ impl<T: Ord> JustToIndentAsMuch<T> for BTreeSet<T> {
     pub fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
     */
     fn union<'a>(&'a self, other: &'a BTreeSet<T>) -> Union<'a, T> {
-        Union(MergeIter::new(self.iter(), other.iter()))
+        Union(MergeIterInner::new(self.iter(), other.iter()))
     }
 
     /*
@@ -1373,7 +1373,7 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            match self.0.next() {
+            match self.0.nexts() {
                 (None, None) => return None,
                 (Some(item), None) => return Some(item),
                 (None, Some(item)) => return Some(item),
@@ -1480,7 +1480,7 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        let (a_next, b_next) = self.0.next();
+        let (a_next, b_next) = self.0.nexts();
         a_next.or(b_next)
     }
 
