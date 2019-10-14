@@ -1,7 +1,8 @@
 // file comparable to rust/src/liballoc/collections/btree/set.rs
 use core::cmp::Ordering::{Equal, Greater, Less};
 use core::cmp::{max, min};
-use core::fmt::{self};
+use core::fmt::{self, Debug};
+use core::iter::FusedIterator;
 use std::collections::btree_set::{Iter, Range};
 use std::collections::BTreeSet;
 
@@ -118,10 +119,15 @@ pub struct Range<'a, T: 'a> {
 }
 */
 
-/// Core of an aLternative to Peekable, that is more efficient
+/// Core of an alternative to `Peekable`, that is more efficient
 /// if copying items is cheap and if peeking early does no harm.
-/// It always has one item read ahead.
-#[derive(Clone)]
+/// It always keeps one item (`head`) read ahead from the
+/// wrapped iterator, if any is left, and the remainder (`tail`)
+/// of the wrapped iterator is always one step beyond what the
+/// caller sees.
+/// This `struct` behaves as ExactSizeIterator and FusedIterator,
+/// but is not formally defined as such, because nobody needs it.
+#[derive(Clone, Debug)]
 struct Peeking<I>
 where
     I: Iterator,
@@ -130,24 +136,23 @@ where
     head: Option<I::Item>,
     tail: I,
 }
+
 impl<I> Peeking<I>
 where
-    I: ExactSizeIterator,
+    I: ExactSizeIterator + FusedIterator,
     I::Item: Copy,
 {
     fn new(mut iter: I) -> Self {
         let head = iter.next();
         Peeking { head, tail: iter }
     }
+
     fn next(&mut self) -> Option<I::Item> {
-        match self.head {
-            None => None,
-            Some(item) => {
-                self.head = self.tail.next();
-                Some(item)
-            }
-        }
+        let next = self.head;
+        self.head = self.tail.next();
+        next
     }
+
     fn len(&self) -> usize {
         self.head.map_or(0, |_| 1 + self.tail.len())
     }
@@ -165,9 +170,10 @@ where
     a: Peeking<I>,
     b: Peeking<I>,
 }
+
 impl<I> MergeIterInner<I>
 where
-    I: ExactSizeIterator,
+    I: ExactSizeIterator + FusedIterator,
     I::Item: Copy + Ord,
 {
     fn new(a: I, b: I) -> Self {
@@ -192,6 +198,16 @@ where
     }
 }
 
+impl<I> Debug for MergeIterInner<I>
+where
+    I: Iterator + Debug,
+    I::Item: Copy + Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("MergeIterInner").field(&self.a).field(&self.b).finish()
+    }
+}
+
 /// A lazy iterator producing elements in the difference of `BTreeSet`s.
 ///
 /// This `struct` is created by the [`difference`] method on [`BTreeSet`].
@@ -205,6 +221,7 @@ where
 pub struct Difference<'a, T: 'a> {
     inner: DifferenceInner<'a, T>,
 }
+#[derive(Debug)]
 enum DifferenceInner<'a, T: 'a> {
     Stitch {
         // iterate all of self and some of other, spotting matches along the way
@@ -224,21 +241,7 @@ enum DifferenceInner<'a, T: 'a> {
 */
 impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.inner {
-            DifferenceInner::Stitch {
-                self_iter,
-                other_iter,
-            } => f
-                .debug_tuple("Difference")
-                .field(&self_iter)
-                .field(&other_iter.head)
-                .field(&other_iter.tail)
-                .finish(),
-            DifferenceInner::Search { self_iter, .. } => {
-                f.debug_tuple("Difference").field(&self_iter).finish()
-            }
-            DifferenceInner::Iterate(iter) => f.debug_tuple("Difference").field(&iter).finish(),
-        }
+        f.debug_tuple("Difference").field(&self.inner).finish()
     }
 }
 
@@ -259,12 +262,7 @@ pub struct SymmetricDifference<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 */
 impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("SymmetricDifference")
-            .field(&self.0.a.head)
-            .field(&self.0.a.tail)
-            .field(&self.0.b.head)
-            .field(&self.0.b.tail)
-            .finish()
+        f.debug_tuple("SymmetricDifference").field(&self.0).finish()
     }
 }
 
@@ -281,6 +279,7 @@ impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
 pub struct Intersection<'a, T: 'a> {
     inner: IntersectionInner<'a, T>,
 }
+#[derive(Debug)]
 enum IntersectionInner<'a, T: 'a> {
     Stitch {
         // iterate similarly sized sets jointly, spotting matches along the way
@@ -300,17 +299,7 @@ enum IntersectionInner<'a, T: 'a> {
 */
 impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.inner {
-            IntersectionInner::Stitch { a, b } => {
-                f.debug_tuple("Intersection").field(&a).field(&b).finish()
-            }
-            IntersectionInner::Search { small_iter, .. } => {
-                f.debug_tuple("Intersection").field(&small_iter).finish()
-            }
-            IntersectionInner::Answer(answer) => {
-                f.debug_tuple("Intersection").field(&answer).finish()
-            }
-        }
+        f.debug_tuple("Intersection").field(&self.inner).finish()
     }
 }
 
@@ -331,12 +320,7 @@ pub struct Union<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 */
 impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Union")
-            .field(&self.0.a.head)
-            .field(&self.0.a.tail)
-            .field(&self.0.b.head)
-            .field(&self.0.b.tail)
-            .finish()
+        f.debug_tuple("Union").field(&self.0).finish()
     }
 }
 
@@ -1384,7 +1368,12 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (0, Some(self.0.a.len() + self.0.b.len()))
+        let a_len = self.0.a.len();
+        let b_len = self.0.b.len();
+        // No checked_add, because even if a and b refer to the same set,
+        // and T is empty, a set's storage overhead implies that the address
+        // space allows fewer elements than half of the usize range.
+        (0, Some(a_len + b_len))
     }
 }
 
@@ -1485,7 +1474,11 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let (a_len, b_len) = (self.0.a.len(), self.0.b.len());
+        let a_len = self.0.a.len();
+        let b_len = self.0.b.len();
+        // No checked_add, because even if a and b refer to the same set,
+        // and T is empty, a set's storage overhead implies that the address
+        // space allows fewer elements than half of the usize range.
         (max(a_len, b_len), Some(a_len + b_len))
     }
 }
