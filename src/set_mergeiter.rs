@@ -132,6 +132,7 @@ where
     b: I,
     peeked: Option<MergeIterPeeked<I>>,
 }
+
 #[derive(Copy, Clone, Debug)]
 enum MergeIterPeeked<I>
 where
@@ -140,6 +141,7 @@ where
     A(Option<I::Item>),
     B(Option<I::Item>),
 }
+
 impl<I> MergeIterInner<I>
 where
     I: ExactSizeIterator + FusedIterator,
@@ -175,7 +177,7 @@ where
     fn lens(&self) -> (usize, usize) {
         match self.peeked {
             Some(MergeIterPeeked::A(Some(_))) => (1 + self.a.len(), self.b.len()),
-            Some(MergeIterPeeked::B(Some(_))) => (self.a.len(), self.b.len() + 1),
+            Some(MergeIterPeeked::B(Some(_))) => (self.a.len(), 1 + self.b.len()),
             _ => (self.a.len(), self.b.len()),
         }
     }
