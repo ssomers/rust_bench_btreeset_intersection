@@ -120,8 +120,8 @@ pub struct Range<'a, T: 'a> {
 */
 
 /// Core of SymmetricDifference and Union.
-/// More efficient than btree.map.MergeIter thanks to Peeking,
-/// and crucially for SymmetricDifference, next() reports on both sides.
+/// More efficient than btree.map.MergeIter,
+/// and crucially for SymmetricDifference, nexts() reports on both sides.
 #[derive(Clone)]
 struct MergeIterInner<I>
 where
@@ -149,7 +149,7 @@ where
         MergeIterInner { a, b, peeked: None }
     }
 
-    fn next(&mut self) -> (Option<I::Item>, Option<I::Item>) {
+    fn nexts(&mut self) -> (Option<I::Item>, Option<I::Item>) {
         let mut a_next = match self.peeked {
             Some(MergeIterPeeked::A(next)) => next,
             _ => self.a.next(),
@@ -1344,7 +1344,7 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            match self.0.next() {
+            match self.0.nexts() {
                 (None, None) => return None,
                 (Some(item), None) => return Some(item),
                 (None, Some(item)) => return Some(item),
@@ -1448,7 +1448,7 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
-        let (a_next, b_next) = self.0.next();
+        let (a_next, b_next) = self.0.nexts();
         a_next.or(b_next)
     }
 

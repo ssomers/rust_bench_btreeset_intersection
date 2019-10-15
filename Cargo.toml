@@ -1,5 +1,5 @@
 [package]
-name = "rust_bench_btreeset_intersection"
+name = "rust_bench_btreeset"
 version = "0.1.0"
 authors = ["Stein Somers <git@steinsomers.be>"]
 autotests = false

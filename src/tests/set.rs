@@ -159,7 +159,7 @@ prop_compose! {
 macro_rules! set_tests {
     ($test_mod_name: ident, $mod_name: ident) => {
         mod $test_mod_name {
-            use rust_bench_btreeset_intersection::$mod_name;
+            use rust_bench_btreeset::$mod_name;
             use std::collections::BTreeSet;
             super::proptest! {
                 #[test]
