@@ -1,9 +1,5 @@
 extern crate proptest;
 use self::proptest::prelude::*;
-use ::rust_bench_btreeset_intersection::set::{
-    difference_future, intersection_future, intersection_switch, intersection_swivel,
-    is_subset_future, symmdiff_future, union_future,
-};
 use std::collections::BTreeSet;
 
 fn assert_difference<'a, I: Iterator<Item = &'a u8>>(
@@ -160,214 +156,168 @@ prop_compose! {
     }
 }
 
-proptest! {
-    #[test]
-    fn difference_future_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
-        assert_difference(difference_future(&s1, &s2), &s1, &s2)?
-    }
+macro_rules! set_tests {
+    ($test_mod_name: ident, $mod_name: ident) => {
+        mod $test_mod_name {
+            use rust_bench_btreeset_intersection::$mod_name;
+            use std::collections::BTreeSet;
+            super::proptest! {
+                #[test]
+                fn difference_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
+                    super::assert_difference($mod_name::difference(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn difference_future_aligned_left((s1, s2) in left_aligned_ranges()) {
-        assert_difference(difference_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn difference_aligned_left((s1, s2) in super::left_aligned_ranges()) {
+                    super::assert_difference($mod_name::difference(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn difference_future_aligned_right((s1, s2) in right_aligned_ranges()) {
-        assert_difference(difference_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn difference_aligned_right((s1, s2) in super::right_aligned_ranges()) {
+                    super::assert_difference($mod_name::difference(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn difference_future_aligned_both((s1, s2) in aligned_ranges()) {
-        assert_difference(difference_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn difference_aligned_both((s1, s2) in super::aligned_ranges()) {
+                    super::assert_difference($mod_name::difference(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn difference_future_disjoint((s1, s2) in disjoint_ranges()) {
-        assert_difference(difference_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn difference_disjoint((s1, s2) in super::disjoint_ranges()) {
+                    super::assert_difference($mod_name::difference(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn difference_future_touching((s1, s2) in touching_ranges()) {
-        assert_difference(difference_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn difference_touching((s1, s2) in super::touching_ranges()) {
+                    super::assert_difference($mod_name::difference(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn is_subset_future_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
-        prop_assert_eq!(s1.is_subset(&s2), is_subset_future(&s1, &s2));
-    }
+                #[test]
+                fn is_subset_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
+                    super::prop_assert_eq!(s1.is_subset(&s2), $mod_name::is_subset(&s1, &s2));
+                }
 
-    #[test]
-    fn is_subset_future_aligned_left((s1, s2) in left_aligned_ranges()) {
-        prop_assert_eq!(s1.is_subset(&s2), is_subset_future(&s1, &s2));
-    }
+                #[test]
+                fn is_subset_aligned_left((s1, s2) in super::left_aligned_ranges()) {
+                    super::prop_assert_eq!(s1.is_subset(&s2), $mod_name::is_subset(&s1, &s2));
+                }
 
-    #[test]
-    fn is_subset_future_aligned_right((s1, s2) in right_aligned_ranges()) {
-        prop_assert_eq!(s1.is_subset(&s2), is_subset_future(&s1, &s2));
-    }
+                #[test]
+                fn is_subset_aligned_right((s1, s2) in super::right_aligned_ranges()) {
+                    super::prop_assert_eq!(s1.is_subset(&s2), $mod_name::is_subset(&s1, &s2));
+                }
 
-    #[test]
-    fn is_subset_future_aligned_both((s1, s2) in aligned_ranges()) {
-        prop_assert_eq!(s1.is_subset(&s2), is_subset_future(&s1, &s2));
-    }
+                #[test]
+                fn is_subset_aligned_both((s1, s2) in super::aligned_ranges()) {
+                    super::prop_assert_eq!(s1.is_subset(&s2), $mod_name::is_subset(&s1, &s2));
+                }
 
-    #[test]
-    fn is_subset_future_disjoint((s1, s2) in disjoint_ranges()) {
-        prop_assert_eq!(s1.is_subset(&s2), is_subset_future(&s1, &s2));
-    }
+                #[test]
+                fn is_subset_disjoint((s1, s2) in super::disjoint_ranges()) {
+                    super::prop_assert_eq!(s1.is_subset(&s2), $mod_name::is_subset(&s1, &s2));
+                }
 
-    #[test]
-    fn is_subset_future_touching((s2, s1) in touching_ranges()) {
-        prop_assert_eq!(s1.is_subset(&s2), is_subset_future(&s1, &s2));
-    }
+                #[test]
+                fn is_subset_touching((s2, s1) in super::touching_ranges()) {
+                    super::prop_assert_eq!(s1.is_subset(&s2), $mod_name::is_subset(&s1, &s2));
+                }
 
-    #[test]
-    fn intersection_future_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn intersection_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
+                    super::assert_intersection($mod_name::intersection(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn intersection_future_aligned_left((s1, s2) in left_aligned_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn intersection_aligned_left((s1, s2) in super::left_aligned_ranges()) {
+                    super::assert_intersection($mod_name::intersection(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn intersection_future_aligned_right((s1, s2) in right_aligned_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn intersection_aligned_right((s1, s2) in super::right_aligned_ranges()) {
+                    super::assert_intersection($mod_name::intersection(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn intersection_future_aligned_both((s1, s2) in aligned_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn intersection_aligned_both((s1, s2) in super::aligned_ranges()) {
+                    super::assert_intersection($mod_name::intersection(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn intersection_future_disjoint1((s1, s2) in disjoint_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn intersection_disjoint1((s1, s2) in super::disjoint_ranges()) {
+                    super::assert_intersection($mod_name::intersection(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn intersection_future_touching((s2, s1) in touching_ranges()) {
-        assert_intersection(intersection_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn intersection_touching((s2, s1) in super::touching_ranges()) {
+                    super::assert_intersection($mod_name::intersection(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn symmdiff_future_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
-        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn symmdiff_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
+                    super::assert_symmdiff($mod_name::symmdiff(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn symmdiff_future_aligned_left((s1, s2) in left_aligned_ranges()) {
-        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn symmdiff_aligned_left((s1, s2) in super::left_aligned_ranges()) {
+                    super::assert_symmdiff($mod_name::symmdiff(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn symmdiff_future_aligned_right((s1, s2) in right_aligned_ranges()) {
-        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn symmdiff_aligned_right((s1, s2) in super::right_aligned_ranges()) {
+                    super::assert_symmdiff($mod_name::symmdiff(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn symmdiff_future_aligned_both((s1, s2) in aligned_ranges()) {
-        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn symmdiff_aligned_both((s1, s2) in super::aligned_ranges()) {
+                    super::assert_symmdiff($mod_name::symmdiff(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn symmdiff_future_disjoint1((s1, s2) in disjoint_ranges()) {
-        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn symmdiff_disjoint1((s1, s2) in super::disjoint_ranges()) {
+                    super::assert_symmdiff($mod_name::symmdiff(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn symmdiff_future_touching((s2, s1) in touching_ranges()) {
-        assert_symmdiff(symmdiff_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn symmdiff_touching((s2, s1) in super::touching_ranges()) {
+                    super::assert_symmdiff($mod_name::symmdiff(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn union_future_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
-        assert_union(union_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn union_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
+                    super::assert_union($mod_name::union(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn union_future_aligned_left((s1, s2) in left_aligned_ranges()) {
-        assert_union(union_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn union_aligned_left((s1, s2) in super::left_aligned_ranges()) {
+                    super::assert_union($mod_name::union(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn union_future_aligned_right((s1, s2) in right_aligned_ranges()) {
-        assert_union(union_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn union_aligned_right((s1, s2) in super::right_aligned_ranges()) {
+                    super::assert_union($mod_name::union(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn union_future_aligned_both((s1, s2) in aligned_ranges()) {
-        assert_union(union_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn union_aligned_both((s1, s2) in super::aligned_ranges()) {
+                    super::assert_union($mod_name::union(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn union_future_disjoint1((s1, s2) in disjoint_ranges()) {
-        assert_union(union_future(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn union_disjoint1((s1, s2) in super::disjoint_ranges()) {
+                    super::assert_union($mod_name::union(&s1, &s2), &s1, &s2)?
+                }
 
-    #[test]
-    fn union_future_touching((s2, s1) in touching_ranges()) {
-        assert_union(union_future(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_switch_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
-        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_switch_aligned_left((s1, s2) in left_aligned_ranges()) {
-        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_switch_aligned_right((s1, s2) in right_aligned_ranges()) {
-        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_switch_aligned_both((s1, s2) in aligned_ranges()) {
-        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_switch_disjoint1((s1, s2) in disjoint_ranges()) {
-        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_switch_touching((s2, s1) in touching_ranges()) {
-        assert_intersection(intersection_switch(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_swivel_arbitrary(s1: BTreeSet<u8>, s2: BTreeSet<u8>) {
-        assert_intersection(intersection_swivel(&s1, &s2), &s1, &s2)?;
-    }
-
-    #[test]
-    fn intersection_swivel_aligned_left((s1, s2) in left_aligned_ranges()) {
-        assert_intersection(intersection_swivel(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_swivel_aligned_right((s1, s2) in right_aligned_ranges()) {
-        assert_intersection(intersection_swivel(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_swivel_aligned_both((s1, s2) in aligned_ranges()) {
-        assert_intersection(intersection_swivel(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_swivel_disjoint1((s1, s2) in disjoint_ranges()) {
-        assert_intersection(intersection_swivel(&s1, &s2), &s1, &s2)?
-    }
-
-    #[test]
-    fn intersection_swivel_touching((s2, s1) in touching_ranges()) {
-        assert_intersection(intersection_swivel(&s1, &s2), &s1, &s2)?
-    }
+                #[test]
+                fn union_touching((s2, s1) in super::touching_ranges()) {
+                    super::assert_union($mod_name::union(&s1, &s2), &s1, &s2)?
+                }
+            }
+        }
+    };
 }
+
+set_tests! {test_now, set_now}
+set_tests! {test_mergeiter, set_mergeiter}
+set_tests! {test_peeking, set_peeking}
+set_tests! {test_switch, set_switch}
+set_tests! {test_swivel, set_swivel}

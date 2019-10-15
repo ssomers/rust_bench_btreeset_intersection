@@ -7,7 +7,9 @@ extern crate rand_xorshift;
 extern crate test;
 use self::rand::{Rng, SeedableRng};
 use self::rand_xorshift::XorShiftRng;
-use rust_bench_btreeset_intersection::{set, set_now};
+use rust_bench_btreeset_intersection::{
+    set_mergeiter, set_now, set_peeking, set_switch, set_swivel,
+};
 use std::collections::BTreeSet;
 
 fn random(n1: usize, n2: usize) -> [BTreeSet<usize>; 2] {
@@ -171,37 +173,43 @@ macro_rules! stagger_benches {
 }
 
 #[cfg(feature = "diff")]
-vanilla_benches! {diff_actual, super::set_now::difference, count}
+vanilla_benches! {diff_old, super::set_now::difference, count}
 #[cfg(feature = "diff")]
-vanilla_benches! {diff_future, super::set::difference_future, count}
+vanilla_benches! {diff_new, super::set_mergeiter::difference, count}
 #[cfg(feature = "diff")]
-vanilla_benches! {is_subset_actual, super::set_now::is_subset, clone}
+vanilla_benches! {diff_newer, super::set_peeking::difference, count}
 #[cfg(feature = "diff")]
-vanilla_benches! {is_subset_future, super::set::is_subset_future, clone}
+vanilla_benches! {is_subset_old, super::set_now::is_subset, clone}
+#[cfg(feature = "diff")]
+vanilla_benches! {is_subset_future, super::set_peeking::is_subset, clone}
 
 #[cfg(feature = "intersect")]
-vanilla_benches! {intersect_actual, super::set_now::intersection, count}
+vanilla_benches! {intersect_old, super::set_now::intersection, count}
 #[cfg(feature = "intersect")]
-vanilla_benches! {intersect_future, super::set::intersection_future, count}
+vanilla_benches! {intersect_new, super::set_mergeiter::intersection, count}
 #[cfg(feature = "intersect")]
-vanilla_benches! {intersect_switch, super::set::intersection_switch, count}
+vanilla_benches! {intersect_newer, super::set_peeking::intersection, count}
 #[cfg(feature = "intersect")]
-vanilla_benches! {intersect_swivel, super::set::intersection_swivel, count}
+vanilla_benches! {intersect_switch, super::set_switch::intersection, count}
+#[cfg(feature = "intersect")]
+vanilla_benches! {intersect_swivel, super::set_swivel::intersection, count}
 
 #[cfg(feature = "merge")]
-vanilla_benches! {symmdiff_actual, super::set_now::symmetric_difference, count}
+vanilla_benches! {symmdiff_old, super::set_now::symmdiff, count}
 #[cfg(feature = "merge")]
-vanilla_benches! {symmdiff_future, super::set::symmdiff_future, count}
+vanilla_benches! {symmdiff_new, super::set_mergeiter::symmdiff, count}
 #[cfg(feature = "merge")]
-vanilla_benches! {union_actual, super::set_now::union, count}
+vanilla_benches! {symmdiff_newer, super::set_peeking::symmdiff, count}
 #[cfg(feature = "merge")]
-vanilla_benches! {union_future, super::set::union_future, count}
+vanilla_benches! {union_old, super::set_now::union, count}
+#[cfg(feature = "merge")]
+vanilla_benches! {union_future, super::set_peeking::union, count}
 
 #[cfg(feature = "stagger")]
 stagger_benches! {stagger_actual, super::set_now::intersection, count}
 #[cfg(feature = "stagger")]
-stagger_benches! {stagger_future, super::set::intersection_future, count}
+stagger_benches! {stagger_future, super::set_peeking::intersection, count}
 #[cfg(feature = "stagger")]
-stagger_benches! {stagger_search, super::set::intersection_search, count}
+stagger_benches! {stagger_search, super::set_peeking::intersection_search, count}
 #[cfg(feature = "stagger")]
-stagger_benches! {stagger_stitch, super::set::intersection_stitch, count}
+stagger_benches! {stagger_stitch, super::set_peeking::intersection_stitch, count}
