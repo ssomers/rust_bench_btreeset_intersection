@@ -158,10 +158,9 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
                 .field(&self_iter)
                 .field(&other_iter)
                 .finish(),
-            DifferenceInner::Search {
-                self_iter,
-                other_set: _,
-            } => f.debug_tuple("Difference").field(&self_iter).finish(),
+            DifferenceInner::Search { self_iter, .. } => {
+                f.debug_tuple("Difference").field(&self_iter).finish()
+            }
             DifferenceInner::Iterate(iter) => f.debug_tuple("Difference").field(&iter).finish(),
         }
     }
