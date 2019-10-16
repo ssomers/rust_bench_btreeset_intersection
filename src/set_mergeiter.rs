@@ -138,8 +138,8 @@ enum MergeIterPeeked<I>
 where
     I: Iterator,
 {
-    A(Option<I::Item>),
-    B(Option<I::Item>),
+    A(I::Item),
+    B(I::Item),
 }
 
 impl<I> MergeIterInner<I>
@@ -153,11 +153,11 @@ where
 
     fn nexts(&mut self) -> (Option<I::Item>, Option<I::Item>) {
         let mut a_next = match self.peeked {
-            Some(MergeIterPeeked::A(next)) => next,
+            Some(MergeIterPeeked::A(next)) => Some(next),
             _ => self.a.next(),
         };
         let mut b_next = match self.peeked {
-            Some(MergeIterPeeked::B(next)) => next,
+            Some(MergeIterPeeked::B(next)) => Some(next),
             _ => self.b.next(),
         };
         let ord = match (a_next, b_next) {
@@ -167,17 +167,17 @@ where
             (Some(a1), Some(b1)) => a1.cmp(&b1),
         };
         self.peeked = match ord {
-            Less => Some(MergeIterPeeked::B(b_next.take())),
+            Less => b_next.take().map(MergeIterPeeked::B),
             Equal => None,
-            Greater => Some(MergeIterPeeked::A(a_next.take())),
+            Greater => a_next.take().map(MergeIterPeeked::A),
         };
         (a_next, b_next)
     }
 
     fn lens(&self) -> (usize, usize) {
         match self.peeked {
-            Some(MergeIterPeeked::A(Some(_))) => (1 + self.a.len(), self.b.len()),
-            Some(MergeIterPeeked::B(Some(_))) => (self.a.len(), 1 + self.b.len()),
+            Some(MergeIterPeeked::A(_)) => (1 + self.a.len(), self.b.len()),
+            Some(MergeIterPeeked::B(_)) => (self.a.len(), 1 + self.b.len()),
             _ => (self.a.len(), self.b.len()),
         }
     }
