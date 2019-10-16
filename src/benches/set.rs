@@ -178,7 +178,9 @@ vanilla_benches! {difference_newer, rust_bench_btreeset::set_peeking::difference
 #[cfg(feature = "diff")]
 vanilla_benches! {is_subset_old, rust_bench_btreeset::set_now::is_subset, clone}
 #[cfg(feature = "diff")]
-vanilla_benches! {is_subset_future, rust_bench_btreeset::set_peeking::is_subset, clone}
+vanilla_benches! {is_subset_new, rust_bench_btreeset::set_mergeiter::is_subset, clone}
+#[cfg(feature = "diff")]
+vanilla_benches! {is_subset_newer, rust_bench_btreeset::set_peeking::is_subset, clone}
 
 #[cfg(feature = "intersect")]
 vanilla_benches! {intersect_old, rust_bench_btreeset::set_now::intersection, count}
@@ -200,7 +202,9 @@ vanilla_benches! {symmdiff_newer, rust_bench_btreeset::set_peeking::symmdiff, co
 #[cfg(feature = "merge")]
 vanilla_benches! {union_old, rust_bench_btreeset::set_now::union, count}
 #[cfg(feature = "merge")]
-vanilla_benches! {union_future, rust_bench_btreeset::set_peeking::union, count}
+vanilla_benches! {union_new, rust_bench_btreeset::set_mergeiter::union, count}
+#[cfg(feature = "merge")]
+vanilla_benches! {union_newer, rust_bench_btreeset::set_peeking::union, count}
 
 #[cfg(feature = "stagger")]
 stagger_benches! {intersect_stagger_old, rust_bench_btreeset::set_now::intersection, count}
