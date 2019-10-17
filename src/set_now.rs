@@ -227,14 +227,9 @@ enum IntersectionInner<'a, T: 'a> {
 impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.inner {
-            IntersectionInner::Stitch {
-                a,
-                b,
-            } => f
-                .debug_tuple("Intersection")
-                .field(&a)
-                .field(&b)
-                .finish(),
+            IntersectionInner::Stitch { a, b } => {
+                f.debug_tuple("Intersection").field(&a).field(&b).finish()
+            }
             IntersectionInner::Search {
                 small_iter,
                 large_set: _,
@@ -1353,10 +1348,7 @@ impl<T> Clone for Intersection<'_, T> {
     fn clone(&self) -> Self {
         Intersection {
             inner: match &self.inner {
-                IntersectionInner::Stitch {
-                    a,
-                    b,
-                } => IntersectionInner::Stitch {
+                IntersectionInner::Stitch { a, b } => IntersectionInner::Stitch {
                     a: a.clone(),
                     b: b.clone(),
                 },
@@ -1380,10 +1372,7 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
 
     fn next(&mut self) -> Option<&'a T> {
         match &mut self.inner {
-            IntersectionInner::Stitch {
-                a,
-                b,
-            } => {
+            IntersectionInner::Stitch { a, b } => {
                 let mut a_next = a.next()?;
                 let mut b_next = b.next()?;
                 loop {

@@ -134,10 +134,7 @@ where
 }
 
 #[derive(Copy, Clone, Debug)]
-enum MergeIterPeeked<I>
-where
-    I: Iterator,
-{
+enum MergeIterPeeked<I: Iterator> {
     A(I::Item),
     B(I::Item),
 }
@@ -203,9 +200,6 @@ where
 ///
 /// [`BTreeSet`]: struct.BTreeSet.html
 /// [`difference`]: struct.BTreeSet.html#method.difference
-/*
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 pub struct Difference<'a, T: 'a> {
     inner: DifferenceInner<'a, T>,
 }
@@ -224,9 +218,6 @@ enum DifferenceInner<'a, T: 'a> {
     Iterate(Iter<'a, T>), // simply stream self's elements
 }
 
-/*
-#[stable(feature = "collection_debug", since = "1.17.0")]
-*/
 impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Difference").field(&self.inner).finish()
@@ -240,14 +231,8 @@ impl<T: fmt::Debug> fmt::Debug for Difference<'_, T> {
 ///
 /// [`BTreeSet`]: struct.BTreeSet.html
 /// [`symmetric_difference`]: struct.BTreeSet.html#method.symmetric_difference
-/*
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 pub struct SymmetricDifference<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 
-/*
-#[stable(feature = "collection_debug", since = "1.17.0")]
-*/
 impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("SymmetricDifference").field(&self.0).finish()
@@ -261,9 +246,6 @@ impl<T: fmt::Debug> fmt::Debug for SymmetricDifference<'_, T> {
 ///
 /// [`BTreeSet`]: struct.BTreeSet.html
 /// [`intersection`]: struct.BTreeSet.html#method.intersection
-/*
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 pub struct Intersection<'a, T: 'a> {
     inner: IntersectionInner<'a, T>,
 }
@@ -282,9 +264,6 @@ enum IntersectionInner<'a, T: 'a> {
     Answer(Option<&'a T>), // return a specific value or emptiness
 }
 
-/*
-#[stable(feature = "collection_debug", since = "1.17.0")]
-*/
 impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Intersection").field(&self.inner).finish()
@@ -298,14 +277,8 @@ impl<T: fmt::Debug> fmt::Debug for Intersection<'_, T> {
 ///
 /// [`BTreeSet`]: struct.BTreeSet.html
 /// [`union`]: struct.BTreeSet.html#method.union
-/*
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 pub struct Union<'a, T: 'a>(MergeIterInner<Iter<'a, T>>);
 
-/*
-#[stable(feature = "collection_debug", since = "1.17.0")]
-*/
 impl<T: fmt::Debug> fmt::Debug for Union<'_, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Union").field(&self.0).finish()
@@ -1269,9 +1242,6 @@ impl<T> Clone for Difference<'_, T> {
         }
     }
 }
-/*
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 impl<'a, T: Ord> Iterator for Difference<'a, T> {
     type Item = &'a T;
 
@@ -1327,30 +1297,21 @@ impl<'a, T: Ord> Iterator for Difference<'a, T> {
     }
 }
 
-/*
-#[stable(feature = "fused", since = "1.26.0")]
 impl<T: Ord> FusedIterator for Difference<'_, T> {}
 
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 impl<T> Clone for SymmetricDifference<'_, T> {
     fn clone(&self) -> Self {
         SymmetricDifference(self.0.clone())
     }
 }
-/*
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<&'a T> {
         loop {
-            match self.0.nexts() {
-                (None, None) => return None,
-                (Some(item), None) => return Some(item),
-                (None, Some(item)) => return Some(item),
-                (Some(_), Some(_)) => (),
+            let (a_next, b_next) = self.0.nexts();
+            if a_next.and(b_next).is_none() {
+                return a_next.or(b_next);
             }
         }
     }
@@ -1358,18 +1319,14 @@ impl<'a, T: Ord> Iterator for SymmetricDifference<'a, T> {
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (a_len, b_len) = self.0.lens();
         // No checked_add, because even if a and b refer to the same set,
-        // and T is empty, a set's storage overhead implies that the address
-        // space allows fewer elements than half of the usize range.
+        // and T is an empty type, the storage overhead of sets limits
+        // the number of elements to less than half the range of usize.
         (0, Some(a_len + b_len))
     }
 }
 
-/*
-#[stable(feature = "fused", since = "1.26.0")]
 impl<T: Ord> FusedIterator for SymmetricDifference<'_, T> {}
 
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 impl<T> Clone for Intersection<'_, T> {
     fn clone(&self) -> Self {
         Intersection {
@@ -1390,9 +1347,6 @@ impl<T> Clone for Intersection<'_, T> {
         }
     }
 }
-/*
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     type Item = &'a T;
 
@@ -1432,20 +1386,13 @@ impl<'a, T: Ord> Iterator for Intersection<'a, T> {
     }
 }
 
-/*
-#[stable(feature = "fused", since = "1.26.0")]
 impl<T: Ord> FusedIterator for Intersection<'_, T> {}
 
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 impl<T> Clone for Union<'_, T> {
     fn clone(&self) -> Self {
         Union(self.0.clone())
     }
 }
-/*
-#[stable(feature = "rust1", since = "1.0.0")]
-*/
 impl<'a, T: Ord> Iterator for Union<'a, T> {
     type Item = &'a T;
 
@@ -1456,17 +1403,12 @@ impl<'a, T: Ord> Iterator for Union<'a, T> {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         let (a_len, b_len) = self.0.lens();
-        // No checked_add, because even if a and b refer to the same set,
-        // and T is empty, a set's storage overhead implies that the address
-        // space allows fewer elements than half of the usize range.
+        // No checked_add - see SymmetricDifference::size_hint.
         (max(a_len, b_len), Some(a_len + b_len))
     }
 }
 
-/*
-#[stable(feature = "fused", since = "1.26.0")]
 impl<T: Ord> FusedIterator for Union<'_, T> {}
-*/
 
 pub fn is_subset<'a, T: Ord>(selve: &'a BTreeSet<T>, other: &'a BTreeSet<T>) -> bool {
     (selve as &dyn JustToIndentAsMuch<T>).is_subset(other)
