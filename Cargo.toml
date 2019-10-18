@@ -7,10 +7,6 @@ autobenches = false
 edition = "2018"
 
 [features]
-include_100k = []
-diff = []
-intersect = []
-merge = []
 stagger = []
 
 [dev-dependencies]

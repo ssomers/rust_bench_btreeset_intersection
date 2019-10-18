@@ -3,14 +3,23 @@
 Case study comparing the performance of various ways strategies to calculate the intersection, and other binary operations, on BTreeSet instances.
 Requires a build that supports benchmarks, like nightly.
 
-`cargo bench --features diff,intersect,merge,stagger` produces a bunch of measurements, for instance:
+`cargo bench` produces a bunch of measurements, for instance:
 
-    test intersect_new::random_100_vs_100            ... bench:         547 ns/iter (+/- 14)
-    test intersect_old::random_100_vs_100            ... bench:         555 ns/iter (+/- 15)
+    test int_new::random_100_vs_100            ... bench:         547 ns/iter (+/- 14)
+    test int_old::random_100_vs_100            ... bench:         555 ns/iter (+/- 15)
+    test dif_new::random_100_vs_100            ... bench:         750 ns/iter (+/- 36) 
+    test dif_old::random_100_vs_100            ... bench:         754 ns/iter (+/- 42) 
 
-Each of these benches measures the time spent intersecting two different sets with 100 pseudo-random elements (with the same seed each time), in order:
+Each of these benches measures the time spent operating on two sets with 100 pseudo-random elements (with the same seed each time).
+
+Key to module names:
+- int_: intersection
+- dif_: difference
+- sub_: is_subset
+- uni_: union
+- sym_: symmetric_difference
 - _old: (local copy of) existing implementation in liballoc 
-- _new: some new rule
+- _new: some new code
 - _search: iterating over the smallest of the sets, each time searching for a match in the largest set
 - _stitch: same strategy as the original liballoc, but implemented more efficiently without Peekable
 - _switch: stitch that switches to search when it (hopefully) becomes faster
@@ -18,12 +27,12 @@ Each of these benches measures the time spent intersecting two different sets wi
 
 It's best to direct the output to file, and run [cargo-benchcmp](https://github.com/BurntSushi/cargo-benchcmp) on it, .e.g:
     
-    cargo bench --features diff,intersect,merge >bench.txt
-    cargo benchcmp intersect_old:: intersect_new:: bench.txt --threshold 5
+    cargo bench >bench.txt
+    cargo benchcmp int_old:: int_new:: bench.txt --threshold 5
     
 ## Stagger
 
-Tests named `intersect_stagger_new::_000_500_vs_x16` intersect a set of 500 elements with a disjoint set of 8000 elements (500 times 16), with the elements spaced evenly (e.g. 0 in first set, 1..16 in second set, 17 in first set, etc). Comparing for various sizes allows estimating a factor for which the search and the stitch strategy perform likewise:
+Tests named `int_stagger_new::_000_500_vs_x16` intersect a set of 500 elements with a disjoint set of 8000 elements (500 times 16), with the elements spaced evenly (e.g. 0 in first set, 1..16 in second set, 17 in first set, etc). Comparing for various sizes allows estimating a factor for which the search and the stitch strategy perform likewise:
 
 [![Comparison](https://plot.ly/~stein.somers/216.png "View interactively")](https://plot.ly/~stein.somers/216)
 
