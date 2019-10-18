@@ -317,7 +317,7 @@ macro_rules! set_tests {
 }
 
 set_tests! {test_now, set_now}
-set_tests! {test_mergeiter, set_mergeiter}
+set_tests! {test_new, set_new}
 set_tests! {test_peeking, set_peeking}
 set_tests! {test_switch, set_switch}
 set_tests! {test_swivel, set_swivel}

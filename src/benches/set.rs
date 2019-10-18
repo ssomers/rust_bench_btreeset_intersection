@@ -182,24 +182,20 @@ macro_rules! stagger_benches {
 }
 
 vanilla_benches! {dif_old, rust_bench_btreeset::set_now::difference, count}
-vanilla_benches! {dif_new, rust_bench_btreeset::set_mergeiter::difference, count}
-vanilla_benches! {dif_newer, rust_bench_btreeset::set_peeking::difference, count}
+vanilla_benches! {dif_new, rust_bench_btreeset::set_new::difference, count}
+vanilla_benches! {dif_peeking, rust_bench_btreeset::set_peeking::difference, count}
 vanilla_benches! {sub_old, rust_bench_btreeset::set_now::is_subset, clone}
-vanilla_benches! {sub_new, rust_bench_btreeset::set_mergeiter::is_subset, clone}
-vanilla_benches! {sub_newer, rust_bench_btreeset::set_peeking::is_subset, clone}
+vanilla_benches! {sub_new, rust_bench_btreeset::set_new::is_subset, clone}
 
 vanilla_benches! {int_old, rust_bench_btreeset::set_now::intersection, count}
-vanilla_benches! {int_new, rust_bench_btreeset::set_mergeiter::intersection, count}
-vanilla_benches! {int_newer, rust_bench_btreeset::set_peeking::intersection, count}
+vanilla_benches! {int_new, rust_bench_btreeset::set_new::intersection, count}
 vanilla_benches! {int_switch, rust_bench_btreeset::set_switch::intersection, count}
 vanilla_benches! {int_swivel, rust_bench_btreeset::set_swivel::intersection, count}
 
 vanilla_benches! {sym_old, rust_bench_btreeset::set_now::symmdiff, count}
-vanilla_benches! {sym_new, rust_bench_btreeset::set_mergeiter::symmdiff, count}
-vanilla_benches! {sym_newer, rust_bench_btreeset::set_peeking::symmdiff, count}
+vanilla_benches! {sym_new, rust_bench_btreeset::set_new::symmdiff, count}
 vanilla_benches! {uni_old, rust_bench_btreeset::set_now::union, count}
-vanilla_benches! {uni_new, rust_bench_btreeset::set_mergeiter::union, count}
-vanilla_benches! {uni_newer, rust_bench_btreeset::set_peeking::union, count}
+vanilla_benches! {uni_new, rust_bench_btreeset::set_new::union, count}
 
 stagger_benches! {int_stagger_old, rust_bench_btreeset::set_now::intersection, count}
 stagger_benches! {int_stagger_new, rust_bench_btreeset::set_peeking::intersection, count}
