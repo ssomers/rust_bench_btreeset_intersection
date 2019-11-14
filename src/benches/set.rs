@@ -80,14 +80,9 @@ macro_rules! set_bench {
     ($bench_name: ident, $sets: expr, $oper_name: path, $consume_name: ident) => {
         #[bench]
         pub fn $bench_name(b: &mut test::Bencher) {
-            // setup
             let sets = $sets;
 
-            // measure
-            b.iter(|| {
-                let x = $oper_name(&sets[0], &sets[1]).$consume_name();
-                test::black_box(x);
-            })
+            b.iter(|| $oper_name(&sets[0], &sets[1]).$consume_name())
         }
     };
 }
